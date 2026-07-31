@@ -938,7 +938,7 @@
                     {{-- Logo --}}
                     <div class="rail-logo">
                         <a href="{{ route('admin.dashboard') }}">
-                            <img src="https://media.raines.africa/storage/uploads/2025/08/29/2a05a383-cf06-4d12-b728-ec37103526c5.png"
+                            <img src="https://media.onestopstore.co.zw/storage/uploads/2026/07/31/18/57/8e1a3572-d6fc-477e-ac87-0deeb4f54043.png"
                                  style="max-height:36px;width:auto;max-width:56px;" alt="Raines">
                         </a>
                     </div>

@@ -323,7 +323,7 @@ $companyInfo = $companyAddresses[$document->currency_code] ?? $companyAddresses[
         <div class="header">
             <div class="logo-section">
                 <div class="logo-left">
-                    <img src="https://media.raines.africa/storage/uploads/2025/08/29/2a05a383-cf06-4d12-b728-ec37103526c5.png"
+                    <img src="https://media.onestopstore.co.zw/storage/uploads/2026/07/31/18/57/8e1a3572-d6fc-477e-ac87-0deeb4f54043.png"
                          alt="Raines Logo" style="height: 50px; margin-bottom: 5px;">
                 </div>
                 <div class="logo-right">
