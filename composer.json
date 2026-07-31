@@ -111,6 +111,7 @@
         "elasticsearch/elasticsearch": "^8.17",
         "eugem/laravel-payfast": "dev-main",
         "eugem/laravel-pesepay": "dev-main",
+        "fakerphp/faker": "1.23",
         "guzzlehttp/guzzle": "^7.10",
         "guzzlehttp/promises": "^2.0",
         "guzzlehttp/psr7": "^2.7",
@@ -145,7 +146,6 @@
     },
     "require-dev": {
         "barryvdh/laravel-debugbar": "^3.0 || ^4.0",
-        "fakerphp/faker": "^1.23",
         "kitloong/laravel-migrations-generator": "^7.0 || ^8.0",
         "laravel/breeze": "^2.0 || ^3.0",
         "laravel/pail": "^1.0 || ^2.0",
