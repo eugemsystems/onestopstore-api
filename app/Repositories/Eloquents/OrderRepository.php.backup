@@ -1,0 +1,672 @@
+<?php
+
+namespace App\Repositories\Eloquents;
+
+use App\Payments\PayFast;
+use App\Payments\PesePay;
+use App\Payments\PdoZambia;
+use App\Payments\Yoco;
+use Exception;
+use Carbon\Carbon;
+use App\Models\Order;
+use App\Payments\Cod;
+use App\Payments\BankTransfer;
+use App\Payments\Mollie;
+use App\Payments\PayPal;
+use App\Payments\Stripe;
+use App\Helpers\Helpers;
+use App\Enums\OrderEnum;
+use App\Enums\RoleEnum;
+use Illuminate\Support\Arr;
+use App\Models\OrderStatus;
+use App\Models\User;
+use App\Enums\PaymentMethod;
+use App\Enums\PaymentStatus;
+use App\Events\PlaceOrderEvent;
+use App\Models\OrderTransaction;
+use App\Models\Currency;
+use App\Enums\WalletPointsDetail;
+use App\Http\Traits\PaymentTrait;
+use Illuminate\Support\Facades\DB;
+use App\Http\Traits\CheckoutTrait;
+use App\Http\Traits\TransactionsTrait;
+use Barryvdh\DomPDF\Facade\Pdf as PDF;
+use App\Events\UpdateOrderStatusEvent;
+use App\GraphQL\Exceptions\ExceptionHandler;
+use Illuminate\Support\Facades\Log;
+use App\Models\OrderStatusHistory;
+use Prettus\Repository\Eloquent\BaseRepository;
+use Prettus\Repository\Criteria\RequestCriteria;
+use Illuminate\Database\QueryException;
+
+class OrderRepository extends BaseRepository
+{
+    use CheckoutTrait, PaymentTrait, TransactionsTrait;
+
+    protected $settings;
+    protected $orderStatus;
+    protected $orderTransaction;
+
+    protected $fieldSearchable = [
+        'order_number' => 'ilike',
+        'payment_method' => 'ilike',
+        'orderStatus.name' => 'ilike',
+        'consumer.name' => 'ilike',
+        'consumer.email' => 'ilike',
+        'consumer.phone' => 'ilike',
+        'payment_status' => 'ilike',
+        'products.search_keywords' => 'ilike',
+        'shipping_address.city' => 'ilike',
+        'shipping_address.street' => 'ilike',
+    ];
+
+    public function boot()
+    {
+        try {
+
+            $this->pushCriteria(app(RequestCriteria::class));
+
+        } catch (ExceptionHandler $e) {
+
+            throw new ExceptionHandler($e->getMessage(), $e->getCode());
+        }
+    }
+
+    function model()
+    {
+        $this->orderStatus = new OrderStatus();
+        $this->settings = Helpers::getSettings();
+        $this->orderTransaction = new OrderTransaction();
+        return Order::class;
+    }
+
+    public function getOrderNumber($digits)
+    {
+        $i = 0;
+        do {
+
+            $order_number = pow(10, $digits) + $i++;
+
+        } while ($this->model->where("order_number", "=", $order_number)->exists());
+
+        return $order_number;
+    }
+
+    protected function nextOrderNumber(): int
+    {
+        // Assumes caller is within an active DB transaction.
+        // Locks the current highest order row to serialize allocations.
+        $last = $this->model->newQuery()
+            ->select('order_number')
+            ->orderByDesc('order_number')
+            ->lockForUpdate()
+            ->first();
+
+        $base = $last ? (int) $last->order_number : 999;
+        return $base + 1;
+    }
+
+    public function show($order_number)
+    {
+        try {
+
+            $order = Helpers::getOrderByOrderNumber($order_number);
+            if ($order) {
+                return $this->verifyPayment($order);
+            }
+
+        } catch (Exception $e) {
+
+            //throw new ExceptionHandler($e->getMessage(), $e->getCode());
+            throw new Exception('The provided order number is not valid.'. $e->getMessage(), $e->getCode());
+
+        }
+    }
+
+    public function trackOrder($order_number)
+    {
+        try {
+
+            return $this->show($order_number);
+
+        } catch (Exception $e) {
+
+            throw new Exception($e->getMessage(), $e->getCode());
+        }
+    }
+
+    public function placeOrder($request)
+    {
+
+        DB::beginTransaction();
+        try {
+
+            $consumer_id = $this->getConsumerId($request);
+            $products = $this->getUniqueProducts($request->products);
+            $request->merge(['products' => $products]);
+
+            // Resolve currency context before calculating costs (so any price-display logic can use it later if needed)
+            $currencyCode = strtoupper(trim((string) $request->input('currency', 'USD')));
+            $currency = \App\Models\Currency::query()
+                ->whereRaw('upper(code) = ?', [$currencyCode])
+                ->where('status', 1)
+                ->first();
+            if ($currency) {
+                $request->merge([
+                    'currency' => $currency->code,
+                    'currency_symbol' => $currency->symbol,
+                    'exchange_rate' => (float) ($currency->exchange_rate ?: 1),
+                ]);
+            } else {
+                // fallback
+                $request->merge([
+                    'currency' => $currencyCode ?: 'USD',
+                    'currency_symbol' => $request->input('currency_symbol', '$'),
+                    'exchange_rate' => (float) $request->input('exchange_rate', 1),
+                ]);
+            }
+
+            $items = $this->calculate($request);
+
+            // Enforce ZAR amounts for YOCO - only convert if NOT already in ZAR
+            try {
+                $pm = strtolower((string) $request->payment_method);
+                $currentCurrency = strtoupper(trim((string) $request->input('currency', 'USD')));
+
+                if ($pm === 'yoco' && $currentCurrency !== 'ZAR') {
+                    // Only convert if currency is NOT already ZAR (to prevent double conversion)
+                    $base = Currency::where('system_reserve', 1)->first();
+                    $zar  = Currency::whereRaw('upper(code) = ?', ['ZAR'])->first();
+                    $baseRate = $base ? (float) $base->exchange_rate : 1.0;
+                    $zarRate  = $zar  ? (float) $zar->exchange_rate  : 1.0;
+                    $factor   = ($baseRate > 0) ? ($zarRate / $baseRate) : $zarRate;
+
+                    if ($factor > 0) {
+                        Log::info('YOCO backend conversion', [
+                            'from_currency' => $currentCurrency,
+                            'to_currency' => 'ZAR',
+                            'factor' => $factor,
+                            'original_total' => $items['total']['total'] ?? 0
+                        ]);
+
+                        // Convert top-level totals
+                        if (isset($items['total']) && is_array($items['total'])) {
+                            foreach (['sub_total','shipping_total','tax_total','total'] as $k) {
+                                if (isset($items['total'][$k])) {
+                                    $items['total'][$k] = Helpers::formatDecimal((float)$items['total'][$k] * $factor);
+                                }
+                            }
+                        }
+                        // Convert per-store items and product rows
+                        if (isset($items['items']) && is_array($items['items'])) {
+                            foreach ($items['items'] as &$storeRow) {
+                                if (isset($storeRow['total']) && is_array($storeRow['total'])) {
+                                    foreach (['sub_total','shipping_total','tax_total','total'] as $k) {
+                                        if (isset($storeRow['total'][$k])) {
+                                            $storeRow['total'][$k] = Helpers::formatDecimal((float)$storeRow['total'][$k] * $factor);
+                                        }
+                                    }
+                                }
+                                if (isset($storeRow['products']) && is_array($storeRow['products'])) {
+                                    foreach ($storeRow['products'] as &$p) {
+                                        foreach (['single_price','subtotal','tax','shipping_cost'] as $pk) {
+                                            if (isset($p[$pk])) {
+                                                $p[$pk] = Helpers::formatDecimal((float)$p[$pk] * $factor);
+                                            }
+                                        }
+                                    }
+                                    unset($p);
+                                }
+                            }
+                            unset($storeRow);
+                        }
+                        // Convert request delivery price
+                        if ($request->has('delivery_price')) {
+                            $request->merge(['delivery_price' => Helpers::formatDecimal((float)$request->delivery_price * $factor)]);
+                        }
+                        // Force ZAR currency fields on request
+                        $request->merge([
+                            'currency' => 'ZAR',
+                            'currency_symbol' => 'R',
+                            'exchange_rate' => $factor,
+                        ]);
+
+                        Log::info('YOCO backend conversion completed', [
+                            'converted_total' => $items['total']['total'] ?? 0
+                        ]);
+                    }
+                } elseif ($pm === 'yoco' && $currentCurrency === 'ZAR') {
+                    // Already ZAR - just ensure currency fields are set correctly
+                    Log::info('YOCO: Currency already ZAR, no conversion needed');
+                    $request->merge([
+                        'currency' => 'ZAR',
+                        'currency_symbol' => 'R',
+                    ]);
+                }
+            } catch (\Throwable $e) {
+                Log::warning('YOCO ZAR conversion failed', ['error' => $e->getMessage()]);
+            }
+
+            if ($request->coupon) {
+                $coupon = Helpers::getCoupon($request->coupon);
+                $amount = Helpers::getTotalAmount($request->products);
+                if ($this->isValidCoupon($coupon, $amount, $request->consumer_id)) {
+                    $request->merge(['coupon_id' => $coupon->id]);
+                }
+            }
+
+            $request->merge(['store_id' => head($items['items'])['store']]);
+
+            $order = $this->createOrder($items, $request);
+
+            if (Helpers::isMultiVendorEnable()) {
+                $this->createSubOrder($items, $request, $order);
+                $order->sub_orders;
+            }
+
+            DB::commit();
+            //Helpers::removeCart($order);
+
+            $order = $order->fresh();
+            if ($request->points_amount) {
+                $balance = abs($items['total']['convert_point_amount']);
+                if ($this->verifyPoints($consumer_id, $balance)) {
+                    $balance = $this->currencyToPoints($balance);
+                    $this->debitPoints($consumer_id, $balance, WalletPointsDetail::POINTS_ORDER.' #'.$order->order_number);
+                }
+            }
+
+            if ($request->wallet_balance) {
+                $balance = abs($items['total']['convert_wallet_balance']);
+                if ($this->verifyWallet($consumer_id, $balance)) {
+                    $this->debitWallet($consumer_id, $balance, WalletPointsDetail::WALLET_ORDER.' #'.$order->order_number);
+                }
+            }
+
+            if (Helpers::pointIsEnable()) {
+                $rewardPoints = $this->getRewardPoints($items['total']['total']);
+                if ($rewardPoints) {
+                    $this->creditPoints($consumer_id, $rewardPoints, WalletPointsDetail::REWARD.' #'.$order->order_number);
+                }
+            }
+
+            if ($request->coupon_id) {
+                $this->updateCouponUsage($request->coupon_id);
+            }
+
+            return $this->createPayment($order, $request);
+
+        } catch (Exception $e) {
+
+            DB::rollback();
+            //throw new ExceptionHandler($e->getMessage(), $e->getCode());
+            throw new Exception('Order placement failed: ' . $e->getMessage(), $e->getCode());
+        }
+    }
+
+    public function createPayment(Order $order, $request)
+    {
+        try {
+
+            switch ($request->payment_method) {
+                case PaymentMethod::PAYPAL:
+                    return PayPal::getIntent($order, $request);
+
+                case PaymentMethod::PESE:
+                    return PesePay::getIntent($order, $request);
+
+                case PaymentMethod::PAYFAST:
+                    return PayFast::getIntent($order, $request);
+
+                case PaymentMethod::PDO_ZAMBIA:
+                    return PdoZambia::getIntent($order, $request);
+
+                case PaymentMethod::YOCO:
+                    return Yoco::getIntent($order, $request);
+
+                case PaymentMethod::COD:
+                    return Cod::status($order, $request);
+
+                case PaymentMethod::BANK_TRANSFER:
+                    return BankTransfer::status($order, $request);
+
+                default:
+                    throw new Exception('The selected payment method is not valid for this transaction.', 400);
+            }
+
+            return $order;
+
+        } catch (Exception $e) {
+            //throw new ExceptionHandler($e->getMessage(), $e->getCode());
+            throw new Exception('Payment creation failed: ' . $e->getMessage(), $e->getCode());
+        }
+    }
+
+    public function createOrder($item, $request)
+    {
+        //Log::info("Request",$request->all());
+        if ($this->isActivePaymentMethod($request->payment_method, $item['total']['total'])) {
+            if (!$request->points_amount) {
+                $item['total']['convert_point_amount'] = 0;
+            }
+            if (!$request->wallet_balance) {
+                $item['total']['convert_wallet_balance'] = 0;
+            }
+
+            $attempts = 0;
+            start_create:
+            $attempts++;
+            $order_number = (int) $this->nextOrderNumber();
+            try {
+                $order =  $this->model->create([
+                'order_number' => $order_number,
+                'consumer_id' => $request->consumer_id ?? Helpers::getCurrentUserId(),
+                'store_id' => $request->store_id,
+                'tax_total' => $item['total']['tax_total'],
+                'shipping_total' => $item['total']['shipping_total'],
+//                'shipping_total' => ($item['total']['shipping_total'] + ($request->delivery_price ?? 0)),
+                'payment_method' => $request->payment_method,
+                'order_status_id' => Helpers::getOrderStatusIdByName(OrderEnum::PENDING),
+                'shipping_address_id' => $request->shipping_address_id,
+                'billing_address_id' =>  $request->billing_address_id,
+                'delivery_description' => $request->delivery_description,
+                'delivery_interval' => $request->delivery_interval,
+                'delivery_price' => $request->delivery_price,
+                'parent_id' => $request->parent_id,
+                'coupon_id' => $request->coupon_id,
+                'note' => $request->note,
+                'points_amount' => $item['total']['convert_point_amount'],
+                'wallet_balance' => $item['total']['convert_wallet_balance'],
+                //'invoice_url' => $this->generateInvoiceUrl($order_number),
+                'coupon_total_discount' => $item['total']['coupon_total_discount'],
+                'amount' => $item['total']['sub_total'],
+                'total' => $item['total']['total'],
+                'currency' => $request->input('currency', 'USD'),
+                'currency_symbol' => $request->input('currency_symbol', '$'),
+                'exchange_rate' => (float) $request->input('exchange_rate', 1),
+                //'total' => ($item['total']['total'] + ($request->delivery_price ?? 0))
+            ]);
+            } catch (QueryException $e) {
+                if ($this->isUniqueConstraintViolation($e) && $attempts < 5) {
+                    goto start_create;
+                }
+                throw $e;
+            }
+
+            if (!isset($item['products'])) {
+                foreach($item['items'] as $itemValues) {
+                    foreach ($itemValues['products'] as $productValue) {
+                        $itemProduct[] = $productValue;
+                    }
+                }
+
+                $item['products'] = $itemProduct;
+            }
+
+            foreach ($item['products'] as $itemProduct) {
+                $itemProduct = Arr::except($itemProduct, ['store_id']);
+                $item_products[] = $itemProduct;
+            }
+
+            $item['products'] = $item_products;
+            $order->products()->attach($item['products']);
+            $item_products = [];
+
+            $order->store;
+            $order->products;
+            $order->order_status;
+
+            event(new PlaceOrderEvent($order));
+            return $order;
+        }
+    }
+
+    private function isUniqueConstraintViolation(QueryException $e): bool
+    {
+        $sqlState = $e->errorInfo[0] ?? null;
+        $driverCode = (int) ($e->errorInfo[1] ?? 0);
+
+        if ($sqlState === '23000' && $driverCode === 1062) return true; // MySQL/MariaDB
+        if ($sqlState === '23505') return true; // PostgreSQL
+        if ($sqlState === '23000' && $driverCode === 19) return true; // SQLite
+
+        return str_starts_with((string) $sqlState, '23');
+    }
+
+    public function createSubOrder($items, $request, Order $parentOrder)
+    {
+        $subOrders = [];
+        if (count($items['items']) > 1) {
+            foreach ($items['items'] as $item) {
+                if (isset($request->products)){
+                    $request->merge(['parent_id' => $parentOrder->id, 'store_id' => $item['store']]);
+                    $order = $this->createOrder($item, $request);
+                    $subOrders[] = $order;
+                }
+            }
+        }
+
+        return $subOrders;
+    }
+
+    public function getRewardPoints($total)
+    {
+        $minPerOrderAmount = $this->settings['wallet_points']['min_per_order_amount'];
+        $rewardPerOrderAmount = $this->settings['wallet_points']['reward_per_order_amount'];
+        if ($total >= $minPerOrderAmount) {
+            $rewardPoints = ($total/$minPerOrderAmount)*$rewardPerOrderAmount;
+            return $rewardPoints;
+        }
+    }
+
+    public function getWalletRatio()
+    {
+        $walletRatio = $this->settings['general']['wallet_currency_ratio'];
+        return $walletRatio <= 0 ? 1 : $walletRatio;
+    }
+
+    public function update($request, $id)
+    {
+         DB::beginTransaction();
+        try {
+
+            $request = Arr::except($request, ['order_number']);
+            $order = $this->model->findOrFail($id);
+            if (isset($request['order_status_id'])) {
+                $order_status = $this->orderStatus->where('id', $request['order_status_id'])->pluck('name')->first();
+
+                // If cancelled and payment still pending, mark as CANCELLED
+                if ($order_status == OrderEnum::CANCELLED && $order->payment_status == PaymentStatus::PENDING) {
+                    $request['payment_status'] = PaymentStatus::CANCELLED;
+                }
+                // If status moves away from PENDING to any non-cancelled state and payment still pending, mark as COMPLETED
+                elseif ($order_status != OrderEnum::PENDING && $order_status != OrderEnum::CANCELLED && $order->payment_status == PaymentStatus::PENDING) {
+                    $request['payment_status'] = PaymentStatus::COMPLETED;
+                }
+            }
+
+            // Capture old status and actor prior to update for logging
+            $oldStatusId   = (int) ($order->order_status_id ?? 0);
+            $oldStatusName = (string) ($order->order_status->name ?? '');
+            $actorId       = (int) (Helpers::getCurrentUserId() ?? 0);
+
+            $order->update($request);
+            DB::commit();
+
+            $order = $order->fresh();
+            $order->products;
+            $order->sub_orders;
+            $order->billing_address;
+            $order->shipping_address;
+
+            // If status changed, record history row and log
+            if (isset($request['order_status_id'])) {
+                $newStatusId   = (int) ($order->order_status_id ?? 0);
+                if ($newStatusId !== $oldStatusId) {
+                    // Persist history
+                    OrderStatusHistory::create([
+                        'order_id'      => $order->id,
+                        'old_status_id' => $oldStatusId ?: null,
+                        'new_status_id' => $newStatusId,
+                        'updated_by_id' => $actorId ?: null,
+                    ]);
+
+                    // Log for observability
+                    //$actor = User::find($actorId);
+
+                }
+            }
+
+            if (isset($request['order_status_id'])) {
+                if ($order->order_status->name == OrderEnum::DELIVERED) {
+                    $order->delivered_at = Carbon::now()->toDateString();
+                    $order->save();
+                }
+
+                event(new UpdateOrderStatusEvent($order));
+            }
+
+            return $order;
+
+        } catch (Exception $e) {
+
+            DB::rollback();
+            //throw new ExceptionHandler($e->getMessage(), $e->getCode());
+            throw new Exception('Order update failed: ' . $e->getMessage(), $e->getCode());
+        }
+    }
+
+    public function destroy($id)
+    {
+        try {
+
+            return $this->model->where('id', $id)->where('consumer_id', Helpers::getCurrentUserId())->destroy($id);
+
+        } catch (Exception $e){
+
+            //throw new ExceptionHandler($e->getMessage(), $e->getCode());
+            throw new Exception('Order deletion failed: ' . $e->getMessage(), $e->getCode());
+        }
+    }
+
+    public function verifyPayment($request)
+    {
+        try {
+
+            $order = $this->verifyOrderNumber($request->order_number);
+            $transaction_id = $this->orderTransaction->where('order_id',$order->id)->pluck('transaction_id')->first();
+            if (is_null($order) || !$transaction_id) {
+                return $order;
+            }
+
+            switch ($order->payment_method) {
+                case PaymentMethod::PAYPAL:
+                    return PayPal::status($order, $transaction_id);
+
+                case PaymentMethod::PESE:
+                    return PesePay::status($order, $transaction_id);
+
+                case PaymentMethod::PAYFAST:
+                    return PayFast::status($order, $transaction_id);
+
+                case PaymentMethod::PDO_ZAMBIA:
+                    return PdoZambia::status($order, $transaction_id);
+
+                case PaymentMethod::YOCO:
+                    return Yoco::status($order, $transaction_id);
+
+                default:
+                    return $order;
+            }
+
+        } catch (Exception $e) {
+
+            //throw new ExceptionHandler($e->getMessage(), $e->getCode());
+            throw new Exception('Payment verification failed: ' . $e->getMessage(), $e->getCode());
+        }
+    }
+
+    public function verifyOrderNumber($order_number)
+    {
+        try {
+
+            $query = $this->model->with(config('enums.order.with'))
+                ->where('order_number', $order_number);
+
+            $roleName = Helpers::getCurrentRoleName();
+            if ($roleName == RoleEnum::CONSUMER) {
+                $query->where('consumer_id', Helpers::getCurrentUserId());
+            }
+
+            $order = $query->first();
+            if (!$order) {
+                throw new Exception('The provided order number is not valid.', 400);
+            }
+
+            $order->products;
+            return $order;
+
+        }  catch (Exception $e) {
+
+            //throw new ExceptionHandler($e->getMessage(), $e->getCode());
+            throw new Exception('Order verification failed: ' . $e->getMessage(), $e->getCode());
+        }
+    }
+
+    public function rePayment($request)
+    {
+        try {
+
+            $order = $this->verifyOrderNumber($request->order_number);
+            if ($order->payment_status == PaymentStatus::COMPLETED) {
+                throw new Exception('This payment has already been successfully processed previously.', 400);
+            }
+
+            return $this->createPayment($order, $request);
+
+        } catch (Exception $e) {
+
+            //throw new ExceptionHandler($e->getMessage(), $e->getCode());
+            throw new Exception('Re-payment failed: ' . $e->getMessage(), $e->getCode());
+        }
+    }
+
+    public function generateInvoiceUrl($order_number)
+    {
+        return route('invoice', ['order_number' => $order_number]);
+    }
+
+    public function getInvoiceUrl($order_number)
+    {
+        try {
+
+            return $this->verifyOrderNumber($order_number)->invoice_url;
+
+        } catch (Exception $e) {
+
+            //throw new ExceptionHandler($e->getMessage(), $e->getCode());
+            throw new Exception('Invoice URL generation failed: ' . $e->getMessage(), $e->getCode());
+        }
+    }
+
+    public function getInvoice($request)
+    {
+        try {
+
+            $order = $this->verifyOrderNumber($request->order_number);
+            $invoice = [
+                'orders' => $order,
+                'settings' => Helpers::getSettings(),
+            ];
+
+            return PDF::loadView('emails.invoice', $invoice)->download('invoice-'.$order->order_number.'.pdf');
+
+        } catch (Exception $e) {
+
+            //throw new ExceptionHandler($e->getMessage(), $e->getCode());
+            throw new Exception('Invoice generation failed: ' . $e->getMessage(), $e->getCode());
+        }
+    }
+
+
+}

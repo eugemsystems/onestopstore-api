@@ -1,0 +1,221 @@
+{
+    "$schema": "https://getcomposer.org/schema.json",
+    "name": "laravel/laravel",
+    "type": "project",
+    "description": "The skeleton application for the Laravel framework.",
+    "keywords": ["laravel", "framework"],
+    "license": "MIT",
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://gitlab.com/plugins8415129/payfastpaymentgateway.git"
+        },
+        {
+            "type": "vcs",
+            "url": "https://gitlab.com/plugins8415129/pesepaypaymentgateway.git"
+        },
+        {
+            "type": "package",
+            "package": {
+                "name": "prettus/laravel-validation",
+                "version": "dev-l13-patched",
+                "require": {
+                    "php": ">=5.4.0",
+                    "illuminate/support": "~5.4|^6.0|^7.0|^8.0|^9.0|^10.0|^11.0|^12.0|^13.0",
+                    "illuminate/validation": "~5.4|^6.0|^7.0|^8.0|^9.0|^10.0|^11.0|^12.0|^13.0"
+                },
+                "autoload": {
+                    "psr-4": {
+                        "Prettus\\Validator\\": "src/Prettus/Validator/"
+                    }
+                },
+                "dist": {
+                    "url": "https://github.com/andersao/laravel-validator/archive/master.zip",
+                    "type": "zip"
+                }
+            }
+        },
+        {
+            "type": "package",
+            "package": {
+                "name": "prettus/l5-repository",
+                "version": "dev-l13-patched",
+                "require": {
+                    "illuminate/http": "~5.0|~6.0|~7.0|^8.0|^9.0|^10.0|^11.0|^12.0|^13.0",
+                    "illuminate/config": "~5.0|~6.0|~7.0|^8.0|^9.0|^10.0|^11.0|^12.0|^13.0",
+                    "illuminate/support": "~5.0|~6.0|~7.0|^8.0|^9.0|^10.0|^11.0|^12.0|^13.0",
+                    "illuminate/database": "~5.0|~6.0|~7.0|^8.0|^9.0|^10.0|^11.0|^12.0|^13.0",
+                    "illuminate/pagination": "~5.0|~6.0|~7.0|^8.0|^9.0|^10.0|^11.0|^12.0|^13.0",
+                    "illuminate/console": "~5.0|~6.0|~7.0|^8.0|^9.0|^10.0|^11.0|^12.0|^13.0",
+                    "illuminate/filesystem": "~5.0|~6.0|~7.0|^8.0|^9.0|^10.0|^11.0|^12.0|^13.0",
+                    "prettus/laravel-validation": "dev-l13-patched",
+                    "illuminate/validation": "~5.0|~6.0|~7.0|^8.0|^9.0|^10.0|^11.0|^12.0|^13.0"
+                },
+                "autoload": {
+                    "psr-4": {
+                        "Prettus\\Repository\\": "src/Prettus/Repository/"
+                    }
+                },
+                "extra": {
+                    "laravel": {
+                        "providers": [
+                            "Prettus\\Repository\\Providers\\RepositoryServiceProvider"
+                        ]
+                    }
+                },
+                "source": {
+                    "url": "https://github.com/andersao/l5-repository",
+                    "type": "git",
+                    "reference": "master"
+                }
+            }
+        },
+        {
+            "type": "package",
+            "package": {
+                "name": "matchish/laravel-scout-elasticsearch",
+                "version": "dev-l13-patched",
+                "require": {
+                    "php": "^8.0.12|^8.1|^8.2|^8.3|^8.4|^8.5",
+                    "elasticsearch/elasticsearch": "^8.0",
+                    "handcraftedinthealps/elasticsearch-dsl": "^8.0",
+                    "laravel/scout": "^8.0|^9.0|^10.0|^11.0|^12.0|^13.0"
+                },
+                "autoload": {
+                    "psr-4": {
+                        "Matchish\\ScoutElasticSearch\\": "src/"
+                    }
+                },
+                "extra": {
+                    "laravel": {
+                        "providers": [
+                            "Matchish\\ScoutElasticSearch\\ScoutElasticSearchServiceProvider"
+                        ]
+                    }
+                },
+                "source": {
+                    "url": "https://github.com/matchish/laravel-scout-elasticsearch",
+                    "type": "git",
+                    "reference": "master"
+                }
+            }
+        }
+    ],
+    "require": {
+        "php": "^8.3",
+        "ext-gd": "*",
+        "barryvdh/laravel-dompdf": "^3.0 || ^4.0",
+        "codevirtus/pesepay": "^1.0",
+        "cviebrock/eloquent-sluggable": "dev-master",
+        "darkaonline/l5-swagger": "dev-master",
+        "elasticsearch/elasticsearch": "^8.17",
+        "eugem/laravel-payfast": "dev-main",
+        "eugem/laravel-pesepay": "dev-main",
+        "guzzlehttp/guzzle": "^7.10",
+        "guzzlehttp/promises": "^2.0",
+        "guzzlehttp/psr7": "^2.7",
+        "halaxa/json-machine": "^1.2",
+        "http-interop/http-factory-guzzle": "^1.2",
+        "intervention/image": "^3.10",
+        "jackiedo/dotenv-editor": "*",
+        "laravel/framework": "^13.0",
+        "laravel/horizon": "^5.42",
+        "laravel/sanctum": "^4.0",
+        "laravel/scout": "^10.0 || ^11.0 || ^12.0",
+        "laravel/slack-notification-channel": "^3.6",
+        "laravel/tinker": "^3.0",
+        "maatwebsite/excel": "^3.1",
+        "matchish/laravel-scout-elasticsearch": "dev-l13-patched",
+        "mll-lab/laravel-graphiql": "^3.0 || ^4.0",
+        "mollie/laravel-mollie": "^3.0 || ^4.0",
+        "nesbot/carbon": "^3.0",
+        "nuwave/lighthouse": "^6.0 || ^7.0",
+        "nyholm/psr7": "^1.8",
+        "opcodesio/log-viewer": "^3.0 || ^4.0",
+        "openai-php/laravel": "^0.19.1",
+        "php-http/guzzle7-adapter": "^1.1",
+        "predis/predis": "^3.0",
+        "prettus/l5-repository": "dev-l13-patched",
+        "simplesoftwareio/simple-qrcode": "^4.2",
+        "spatie/laravel-medialibrary": "^11.0 || ^12.0",
+        "spatie/laravel-permission": "^6.10",
+        "srmklive/paypal": "^3.0",
+        "symfony/http-client": "^7.3",
+        "webpatser/laravel-countries": "^1.5"
+    },
+    "require-dev": {
+        "barryvdh/laravel-debugbar": "^3.0 || ^4.0",
+        "fakerphp/faker": "^1.23",
+        "kitloong/laravel-migrations-generator": "^7.0 || ^8.0",
+        "laravel/breeze": "^2.0 || ^3.0",
+        "laravel/pail": "^1.0 || ^2.0",
+        "laravel/pint": "^1.13",
+        "laravel/sail": "^1.26",
+        "mockery/mockery": "^1.6",
+        "nunomaduro/collision": "^8.0 || ^9.0",
+        "phpunit/phpunit": "^12.0"
+    },
+    "autoload": {
+        "files": [
+            "app/Helpers/Helpers.php"
+        ],
+        "psr-4": {
+            "App\\": "app/",
+            "Database\\Factories\\": "database/factories/",
+            "Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "post-autoload-dump": [
+            "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
+            "@php artisan package:discover --ansi"
+        ],
+        "post-update-cmd": [
+            "@php artisan vendor:publish --tag=laravel-assets --ansi --force"
+        ],
+        "post-root-package-install": [
+            "@php -r \"file_exists('.env') || copy('.env.example', '.env');\""
+        ],
+        "post-create-project-cmd": [
+            "@php artisan key:generate --ansi",
+            "@php -r \"file_exists('database/database.sqlite') || touch('database/database.sqlite');\"",
+            "@php artisan migrate --graceful --ansi"
+        ],
+        "dev": [
+            "Composer\\Config::disableProcessTimeout",
+            "npx concurrently -c \"#93c5fd,#c4b5fd,#fb7185,#fdba74\" \"php artisan serve\" \"php artisan queue:listen --tries=1\" \"php artisan pail --timeout=0\" \"npm run dev\" --names=server,queue,logs,vite"
+        ]
+    },
+    "extra": {
+        "laravel": {
+            "dont-discover": []
+        },
+        "composer": {
+            "stability-flags": {
+                "eugem/laravel-payfast": "dev",
+                "eugem/laravel-pesepay": "dev",
+                "darkaonline/l5-swagger": "dev",
+                "cviebrock/eloquent-sluggable": "dev",
+                "matchish/laravel-scout-elasticsearch": "dev",
+                "prettus/l5-repository": "dev",
+                "prettus/laravel-validation": "dev"
+            }
+        }
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "preferred-install": "dist",
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true,
+            "php-http/discovery": true
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}

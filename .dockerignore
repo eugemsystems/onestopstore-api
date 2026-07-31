@@ -1,0 +1,24 @@
+.git
+.idea
+.qodo
+node_modules
+vendor
+.env
+.env.bak.prod
+.env.analytics.example
+.env.example
+.phpunit.result.cache
+tests
+docs
+ngrok.exe
+
+# Runtime data (bind-mounted from host at container start, so baking it into
+# the image is pure waste) — this alone was 1.2GB and the main reason builds
+# were timing out on context transfer. storage/framework/* is NOT excluded:
+# those subdirs must exist (even empty) or composer's post-autoload-dump hook
+# fails with "Please provide a valid cache path."
+storage/app/public
+storage/app/jsonfiles
+storage/app/jsonfiles-update
+storage/app/temp
+storage/debugbar

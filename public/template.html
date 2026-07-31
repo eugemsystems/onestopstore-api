@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Promo Banner</title>
+    <style>
+        /* Container holding the background template */
+        .promo-banner {
+            position: relative;
+            width: 800px;
+            /* Fixed width to match your image */
+            height: 850px;
+            /* Fixed height to match your image */
+            background-image: url('https://media.raines.africa/storage/uploads/2026/03/11/19/34/14fff52c-86e5-4f11-8461-2c6cd48d1b16.jpeg');
+            background-size: cover;
+            background-position: center;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+
+        /* Product Image Container */
+        .product-image-container {
+            position: absolute;
+            top: 14%;
+            right: -10%;
+            width: 60%;
+            height: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .product-image-container img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        /* Product name */
+        .product-name {
+            position: absolute;
+            top: 65%;
+            left: 61%;
+            width: 30%;
+            font-size: 26px;
+            font-weight: bold;
+            color: white;
+            text-shadow: 1px 1px 4px rgba(0, 0, 0, 0.7);
+            line-height: 1.3;
+        }
+
+        /* Pricing Ã¢â‚¬â€ placed relative to the promo-banner to align with the red box */
+        .was-price {
+            position: absolute;
+            bottom: 329px;
+            left: 214px;
+            font-size: 32px;
+            color: white;
+            text-decoration: line-through;
+            white-space: nowrap;
+        }
+
+        .now-price {
+            position: absolute;
+            bottom: 274px;
+            left: 214px;
+            font-size: 35px;
+            font-weight: bold;
+            color: white;
+            white-space: nowrap;
+        }
+
+        /* Sale end date badge */
+        .sale-end-date {
+            position: absolute;
+            bottom: 130px;
+            left: 578px;
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.85);
+            white-space: nowrap;
+            display: none;
+            /* hidden until a date is set */
+        }
+
+        .sale-end-date.visible {
+            display: block;
+        }
+
+        /* Product ID badge (top-left corner, subtle) */
+        .product-id {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.5);
+            font-family: monospace;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="promo-banner" id="promoBanner">
+
+        <!-- Product ID (subtle) -->
+        <span class="product-id" id="dynamicId"></span>
+
+        <!-- Product name -->
+        <div class="product-name" id="dynamicName"></div>
+
+        <!-- Product image (thumbnail) -->
+        <div class="product-image-container">
+            <img id="dynamicImage" src="" alt="Product Image" onerror="this.style.display='none'">
+        </div>
+
+        <!-- Prices Ã¢â‚¬â€ absolutely positioned to align with the red box on the background -->
+        <span class="was-price" id="dynamicWasPrice"></span>
+        <span class="now-price" id="dynamicNowPrice"></span>
+
+        <!-- Sale end date -->
+        <span class="sale-end-date" id="dynamicSaleEndDate"></span>
+
+    </div>
+    <script>
+        /**
+         * loadBannerData(data)
+         *
+         * Accepted data fields:
+         *   id            Ã¢â‚¬â€œ product ID (shown as a faint label)
+         *   name          Ã¢â‚¬â€œ product name
+         *   image_url     Ã¢â‚¬â€œ thumbnail / product image URL
+         *   price         Ã¢â‚¬â€œ original / was price  (formatted string or number)
+         *   sale_price    Ã¢â‚¬â€œ sale / now price       (formatted string or number)
+         *   sale_end_date Ã¢â‚¬â€œ optional ISO date string or human-readable date
+         *
+         * You can call this from:
+         *   - another script: loadBannerData({ id:1, name:'TV', ... })
+         *   - URL query params: ?id=1&name=TV&price=$100&sale_price=$80&...
+         */
+        function loadBannerData(data) {
+            // ID
+            const idEl = document.getElementById('dynamicId');
+            if (idEl) idEl.innerText = data.id ? '#' + data.id : '';
+
+            // Name Ã¢â‚¬â€ truncate to 50 chars to prevent overlap
+            const nameEl = document.getElementById('dynamicName');
+            if (nameEl) {
+                const raw = data.name || '';
+                nameEl.innerText = raw.length > 50 ? raw.substring(0, 50).trimEnd() + '\u2026' : raw;
+            }
+
+            // Thumbnail image
+            const imgEl = document.getElementById('dynamicImage');
+            if (imgEl) imgEl.src = data.image_url || '';
+
+            // Prices
+            const wasEl = document.getElementById('dynamicWasPrice');
+            const nowEl = document.getElementById('dynamicNowPrice');
+
+            // Prices Ã¢â‚¬â€ strip decimals (round to whole number if numeric)
+            function fmtPrice(v) {
+                if (!v) return '';
+                const num = parseFloat(String(v).replace(/[^0-9.]/g, ''));
+                if (!isNaN(num)) {
+                    // Preserve the currency prefix (e.g. '$', 'R')
+                    const prefix = String(v).match(/^[^0-9]*/)[0];
+                    return prefix + Math.round(num).toLocaleString();
+                }
+                return String(v);
+            }
+
+            if (data.sale_price && data.sale_price !== data.price) {
+                // Sale is active: show was (strikethrough) + now
+                if (wasEl) wasEl.innerText = fmtPrice(data.price);
+                if (nowEl) nowEl.innerText = fmtPrice(data.sale_price);
+            } else {
+                // No sale: hide was-price, show regular price as now
+                if (wasEl) wasEl.innerText = '';
+                if (nowEl) nowEl.innerText = fmtPrice(data.price);
+            }
+
+            // Sale end date
+            const endEl = document.getElementById('dynamicSaleEndDate');
+            if (endEl) {
+                if (data.sale_end_date) {
+                    // Try to pretty-format if it looks like an ISO date
+                    let label = data.sale_end_date;
+                    try {
+                        const d = new Date(data.sale_end_date);
+                        if (!isNaN(d.getTime())) {
+                            label = 'Sale ends ' + d.toLocaleDateString('en-GB', {
+                                day: '2-digit', month: 'short', year: 'numeric'
+                            });
+                        }
+                    } catch (e) { }
+                    endEl.innerText = label;
+                    endEl.classList.add('visible');
+                } else {
+                    endEl.innerText = '';
+                    endEl.classList.remove('visible');
+                }
+            }
+        }
+
+        // Ã¢â€â‚¬Ã¢â€â‚¬ Auto-load from URL query parameters Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+        // Allows driving this template from a URL like:
+        //   /template.html?id=101&name=Samsung+TV&price=%24399&sale_price=%24299&image_url=https://...&sale_end_date=2026-03-31
+        (function () {
+            const params = new URLSearchParams(window.location.search);
+
+            // Only auto-load if at least a name or id param is present
+            if (params.has('name') || params.has('id')) {
+                loadBannerData({
+                    id: params.get('id') || '',
+                    name: params.get('name') || '',
+                    image_url: params.get('image_url') || '',
+                    price: params.get('price') || '',
+                    sale_price: params.get('sale_price') || '',
+                    sale_end_date: params.get('sale_end_date') || '',
+                });
+            } else {
+                // Fallback demo data so the template isn't blank when opened directly
+                loadBannerData({
+                    id: '101',
+                    name: 'Samsung 65" 4K Smart TV',
+                    image_url: 'https://media.takealot.com/covers_images/19ba5e02d20444f386a52a0f9a9d9999/s-zoom.file',
+                    price: '$1,199.99',
+                    sale_price: '$799.00',
+                    sale_end_date: '2026-03-31',
+                });
+            }
+        })();
+    </script>
+</body>
+
+</html>
