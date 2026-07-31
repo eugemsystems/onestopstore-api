@@ -79,11 +79,22 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
     <style>
         :root {
-            --primary-color: #062a6a;
-            --secondary-color: #0d47a1;
-            --sidebar-bg: linear-gradient(180deg, #1a1f36 0%, #0f1419 100%);
-            --sidebar-hover: rgba(13, 110, 253, 0.1);
-            --sidebar-active: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --primary-color: #7f0000;
+            --secondary-color: #d32f2f;
+            --sidebar-bg: linear-gradient(180deg, #b71c1c 0%, #4a0000 100%);
+            --sidebar-hover: rgba(239, 83, 80, 0.15);
+            --sidebar-active: linear-gradient(135deg, #ef5350 0%, #b71c1c 100%);
+
+            /* Bootstrap 5.3 (loaded from CDN) exposes its palette as CSS
+               variables — overriding these here recolors .btn-primary,
+               links, badges, etc. across every admin view without having
+               to touch each blade file individually. */
+            --bs-primary: #d32f2f;
+            --bs-primary-rgb: 211, 47, 47;
+            --bs-link-color: #d32f2f;
+            --bs-link-color-rgb: 211, 47, 47;
+            --bs-link-hover-color: #b71c1c;
+            --bs-link-hover-color-rgb: 183, 28, 28;
 
             /* Responsive font sizes */
             --base-font-size: 15px;
@@ -166,7 +177,7 @@
             position: absolute;
             top: 0; left: 0; right: 0;
             height: 2px;
-            background: linear-gradient(90deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            background: linear-gradient(90deg, #ef5350 0%, #b71c1c 50%, #ff8a80 100%);
             z-index: 1;
         }
 
@@ -223,15 +234,15 @@
         }
         .rail-link:hover,
         .rail-item.has-flyout:hover > .rail-link {
-            color: #a5b4fc;
-            background: rgba(102,126,234,.12);
-            border-left-color: #667eea;
+            color: #ffcdd2;
+            background: rgba(239,83,80,.12);
+            border-left-color: #ef5350;
             text-decoration: none !important;
         }
         .rail-item.rail-active > .rail-link,
         .rail-item.rail-active > a.rail-link {
-            background: linear-gradient(135deg, rgba(102,126,234,.25) 0%, rgba(118,75,162,.25) 100%);
-            color: #a5b4fc;
+            background: linear-gradient(135deg, rgba(239,83,80,.25) 0%, rgba(183,28,28,.25) 100%);
+            color: #ffcdd2;
             border-left-color: #fbbf24;
         }
         .rail-link i { font-size: 1.05rem; line-height: 1; }
@@ -251,7 +262,7 @@
         .rail-user-btn {
             width: 34px; height: 34px;
             border-radius: 50%;
-            background: linear-gradient(135deg, #667eea, #764ba2);
+            background: linear-gradient(135deg, #ef5350, #b71c1c);
             border: none;
             display: flex; align-items: center; justify-content: center;
             font-weight: 800; font-size: .73rem; color: #fff;
@@ -286,8 +297,8 @@
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 1.2px;
-            color: #667eea;
-            background: rgba(102,126,234,.08);
+            color: #ef5350;
+            background: rgba(239,83,80,.08);
             border-bottom: 1px solid rgba(255,255,255,.06);
             position: sticky;
             top: 0;
@@ -307,14 +318,14 @@
             white-space: nowrap;
         }
         .flyout-link:hover {
-            background: rgba(102,126,234,.12);
-            color: #a5b4fc;
-            border-left-color: #667eea;
+            background: rgba(239,83,80,.12);
+            color: #ffcdd2;
+            border-left-color: #ef5350;
             text-decoration: none !important;
         }
         .flyout-link.flyout-active {
-            background: linear-gradient(135deg, rgba(102,126,234,.2) 0%, rgba(118,75,162,.2) 100%);
-            color: #a5b4fc;
+            background: linear-gradient(135deg, rgba(239,83,80,.2) 0%, rgba(183,28,28,.2) 100%);
+            color: #ffcdd2;
             border-left-color: #fbbf24;
             font-weight: 600;
         }
@@ -1079,7 +1090,7 @@
                                 <div class="flyout-title">Content</div>
                                 @can('invoice-quotation.index')<a class="flyout-link {{ request()->routeIs('admin.invoices-quotations.*') ? 'flyout-active' : '' }}" href="{{ route('admin.invoices-quotations.index') }}"><i class="bi bi-file-earmark-text"></i> Invoices & Quotations</a>@endcan
                                 <a class="flyout-link {{ request()->routeIs('admin.blogs.*') ? 'flyout-active' : '' }}" href="{{ route('admin.blogs.index') }}"><i class="bi bi-journal-richtext"></i> Blogs</a>
-                                @can('question_and_answer.index')<a class="flyout-link {{ request()->routeIs('admin.questions.*') ? 'flyout-active' : '' }}" href="{{ route('admin.questions.index') }}"><i class="bi bi-chat-square-quote-fill" style="color:#667eea"></i> Q &amp; A @if(($unansweredQnaCount ?? 0) > 0)<span class="notification-badge">{{ $unansweredQnaCount }}</span>@endif</a>@endcan
+                                @can('question_and_answer.index')<a class="flyout-link {{ request()->routeIs('admin.questions.*') ? 'flyout-active' : '' }}" href="{{ route('admin.questions.index') }}"><i class="bi bi-chat-square-quote-fill" style="color:#ef5350"></i> Q &amp; A @if(($unansweredQnaCount ?? 0) > 0)<span class="notification-badge">{{ $unansweredQnaCount }}</span>@endif</a>@endcan
                                 @can('media.index')<a class="flyout-link {{ request()->routeIs('admin.media.*') ? 'flyout-active' : '' }}" href="{{ route('admin.media.index') }}"><i class="bi bi-folder2-open"></i> Media Library</a>@endcan
                             </div>
                         </div>
@@ -1424,7 +1435,7 @@
     <script>
         // Global SweetAlert Configuration
         const SwalConfig = {
-            confirmColor: '#667eea',
+            confirmColor: '#ef5350',
             successColor: '#28a745',
             errorColor: '#dc3545',
             warningColor: '#ffc107',
