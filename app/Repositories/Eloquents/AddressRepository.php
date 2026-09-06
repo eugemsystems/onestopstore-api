@@ -86,6 +86,15 @@ class AddressRepository extends BaseRepository
         try {
 
             $address = $this->model->findOrFail($id);
+
+            // Never let a non-admin reassign an address to another user_id
+            // via the update payload -- the caller is already authorized
+            // against the address's CURRENT owner, not whatever user_id
+            // they submit in the body.
+            if (Helpers::getCurrentRoleName() != \App\Enums\RoleEnum::ADMIN) {
+                unset($request['user_id']);
+            }
+
             $address->update($request);
 
             DB::commit();
