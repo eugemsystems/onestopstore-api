@@ -121,7 +121,13 @@ class AddressController extends Controller
             if (empty($currentUserId)) {
                 return $address->whereRaw('1 = 0');
             }
-            $address->where('user_id', $currentUserId);
+            // $address is the Prettus repository, not a query builder --
+            // where() is proxied via __call() to the underlying model and
+            // returns a NEW builder rather than mutating the repository in
+            // place. The return value must be captured, otherwise this
+            // filter silently does nothing and index() returns every
+            // address in the table, unscoped, to every user.
+            $address = $address->where('user_id', $currentUserId);
         }
 
         return $address;
