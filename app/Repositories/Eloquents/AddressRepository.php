@@ -62,7 +62,9 @@ class AddressRepository extends BaseRepository
                 'pincode' => $request->pincode,
                 'country_id' => $request->country_id,
                 'state_id' => $request->state_id,
-                'user_id' => $request->user_id ?? Helpers::getCurrentUserId()
+                'user_id' => Helpers::getCurrentRoleName() == \App\Enums\RoleEnum::ADMIN
+                    ? ($request->user_id ?? Helpers::getCurrentUserId())
+                    : Helpers::getCurrentUserId()
             ]);
 
             $address->country;

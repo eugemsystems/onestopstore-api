@@ -1212,7 +1212,10 @@ class OrderController extends Controller
 
         // Role-based filtering
         if ($roleName == RoleEnum::CONSUMER) {
-
+            // Defensive: if no authenticated user, return empty result to avoid leaking data
+            if (empty($currentUserId)) {
+                return $orders->whereRaw('1 = 0');
+            }
 
             $orders = $orders->where('consumer_id', $currentUserId);
         }
@@ -1220,8 +1223,12 @@ class OrderController extends Controller
         if ($roleName == RoleEnum::VENDOR) {
             $vendorStoreId = Helpers::getCurrentVendorStoreId();
 
-
-            $orders = $this->repository->whereNotNull('parent_id')->where('store_id', $vendorStoreId);
+            // Filter orders that contain products belonging to this vendor's store.
+            // Avoid replacing the incoming query ($orders) with a fresh repository
+            // instance which can drop previously-applied eager loads/clauses.
+            $orders = $orders->whereHas('products', function ($q) use ($vendorStoreId) {
+                $q->where('products.store_id', $vendorStoreId);
+            });
         }
 
         // Additional filters

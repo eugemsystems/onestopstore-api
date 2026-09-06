@@ -76,6 +76,7 @@ class AddressController extends Controller
      */
     public function show(Address $address)
     {
+        $this->authorizeAddressAccess($address);
         return $this->repository->show($address->id);
     }
 
@@ -92,6 +93,7 @@ class AddressController extends Controller
      */
     public function update(UpdateAddressRequest $request, Address $address)
     {
+        $this->authorizeAddressAccess($address);
         return $this->repository->update($request->all(), $address->getId($request));
     }
 
@@ -107,6 +109,7 @@ class AddressController extends Controller
      */
     public function destroy(Request $request, Address $address)
     {
+        $this->authorizeAddressAccess($address);
         return $this->repository->destroy($address->getId($request));
     }
 
@@ -114,9 +117,31 @@ class AddressController extends Controller
     {
         $roleName = Helpers::getCurrentRoleName();
         if ($roleName != RoleEnum::ADMIN) {
-            $address->where('user_id', Helpers::getCurrentUserId());
+            $currentUserId = Helpers::getCurrentUserId();
+            if (empty($currentUserId)) {
+                return $address->whereRaw('1 = 0');
+            }
+            $address->where('user_id', $currentUserId);
         }
 
         return $address;
+    }
+
+    /**
+     * Route-model binding fetches an address by raw ID with no ownership
+     * filtering, so every action on a single address must explicitly check
+     * that it belongs to the requesting user (unless they're an admin).
+     */
+    private function authorizeAddressAccess(Address $address): void
+    {
+        $roleName = Helpers::getCurrentRoleName();
+        if ($roleName == RoleEnum::ADMIN) {
+            return;
+        }
+
+        $currentUserId = Helpers::getCurrentUserId();
+        if (empty($currentUserId) || (int) $address->user_id !== (int) $currentUserId) {
+            abort(403, 'You are not authorized to access this address.');
+        }
     }
 }

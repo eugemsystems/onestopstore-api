@@ -49,7 +49,13 @@ class Helpers
   public static function getCurrentRoleName()
   {
     if (self::isUserLogin()) {
-      return Auth::guard('api')->user()?->tokens->first()->role_type;
+      $user = Auth::guard('api')->user();
+      // Use the token that actually authenticated this request, not the
+      // user's first/oldest token -- a user can hold multiple tokens with
+      // different role_type values (e.g. a CRM token alongside a web
+      // session token), and reading the wrong one skips ownership
+      // filtering for orders/addresses further down the stack.
+      return $user?->currentAccessToken()?->role_type ?? $user?->getRoleNames()->first();
     }
   }
 
