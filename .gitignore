@@ -36,3 +36,10 @@ ngrok.exe
 /public/db.sql
 # Scribe-generated API docs — regenerate with: php artisan scribe:generate
 /resources/views/scribe/index.blade.php
+# L5-Swagger-generated API docs — regenerate with: php artisan l5-swagger:generate
+# (also runs automatically on every request when L5_SWAGGER_GENERATE_ALWAYS=true).
+# Was tracked in git, so every deploy where the app regenerates this before a
+# `git pull` runs leaves local changes that block the pull — worse, on a server
+# where the app runs as a different Unix user than the one deploying, git can't
+# even overwrite it on merge (Permission denied unlinking the old file).
+/storage/api-docs/api-docs.json
