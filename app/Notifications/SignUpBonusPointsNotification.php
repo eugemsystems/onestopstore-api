@@ -67,7 +67,7 @@ class SignUpBonusPointsNotification extends Notification implements ShouldQueue
         $settings = Helpers::getSettings();
         $points = $settings['wallet_points']['signup_points'] ?? '100';
 
-        $mainMessage = "Welcome to Raines Africa! 🎉 You've received {$points} bonus points as a thank you for joining us!";
+        $mainMessage = "Welcome to One Stop Store! 🎉 You've received {$points} bonus points as a thank you for joining us!";
         $additionalInfo = "Start shopping and enjoy your rewards. Happy shopping! 🛍️";
 
         return [

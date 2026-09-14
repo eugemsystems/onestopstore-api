@@ -1,4 +1,4 @@
-{{-- Auction Won — no-reply@raines.africa --}}
+{{-- Auction Won — no-reply@onestopstore.co.zw --}}
 @include('emails.partials.layout', [
     'preheader'     => 'Congratulations! You won the auction for ' . $auction->title,
     'emailTitle'    => 'You Won the Auction!',

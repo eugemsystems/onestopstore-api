@@ -29,7 +29,7 @@ class CreateCrmToken extends Command
     public function handle()
     {
         $user = User::firstOrCreate(
-            ['email' => 'token@raines.africa'],
+            ['email' => 'token@onestopstore.co.zw'],
             [
                 'name' => 'Raines Tokens',
                 'password' => Hash::make('Str@wberry14'),

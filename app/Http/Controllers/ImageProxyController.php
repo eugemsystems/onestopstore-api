@@ -33,7 +33,7 @@ class ImageProxyController extends Controller
         // Validate URL is from allowed domains
         $allowedDomains = [
             'media.takealot.com',
-            'media.raines.africa',
+            'media.onestopstore.co.zw',
             'localhost',
         ];
 

@@ -678,7 +678,7 @@ class AdminProductFeedController extends BaseAdminController
         // Get actual brand name if available, otherwise use default
         $brandName = $product->brand && $product->brand->name
             ? $product->brand->name
-            : config('app.name', 'Raines Africa');
+            : config('app.name', 'One Stop Store');
 
         // Clean all text fields from control characters before XML encoding
         $cleanName = $this->removeControlCharacters($product->name);
@@ -731,7 +731,7 @@ class AdminProductFeedController extends BaseAdminController
         // Get actual brand name if available, otherwise use default
         $brandName = $product->brand && $product->brand->name
             ? $product->brand->name
-            : config('app.name', 'Raines Africa');
+            : config('app.name', 'One Stop Store');
 
         // Prepare TSV row data (now includes sale_price column)
         $row = [
@@ -774,7 +774,7 @@ class AdminProductFeedController extends BaseAdminController
         // Get actual brand name if available, otherwise use default
         $brandName = $product->brand && $product->brand->name
             ? $product->brand->name
-            : config('app.name', 'Raines Africa');
+            : config('app.name', 'One Stop Store');
 
         // Use SKU as ID (fallback to product ID if no SKU)
         $productId = $product->sku ?: $product->id;

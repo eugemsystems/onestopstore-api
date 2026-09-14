@@ -261,9 +261,9 @@
             @endphp
             
             @if($logoExists)
-                <img src="{{ $logoPath }}" alt="Raines Africa Logo" class="logo">
+                <img src="{{ $logoPath }}" alt="One Stop Store Logo" class="logo">
             @else
-                <div class="company-name">RAINES AFRICA</div>
+                <div class="company-name">One Stop Store</div>
                 <div class="company-tagline">Quality Products, Trusted Service</div>
             @endif
         </div>
@@ -330,7 +330,7 @@
         <!-- Footer -->
         <div class="footer">
             <div class="footer-contact">
-                <strong>Raines Africa</strong><br>
+                <strong>One Stop Store</strong><br>
                 Email: info@rainesafrica.com | Website: www.rainesafrica.com<br>
                 Contact: +263 123 456 789
             </div>

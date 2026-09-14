@@ -16,7 +16,7 @@ class ApiCacheRefresher
     public function __construct()
     {
         // Base host your Nginx serves (can override via .env)
-        $this->base = rtrim(env('API_CACHE_REFRESH_BASE', 'https://api.raines.africa'), '/');
+        $this->base = rtrim(env('API_CACHE_REFRESH_BASE', 'https://api.onestopstore.co.zw'), '/');
 
         $this->http = new Client([
             'timeout'         => 5.0,
@@ -49,7 +49,7 @@ class ApiCacheRefresher
                     'X-Recache'        => '1',
                     'Accept'           => 'application/json',
                     'X-Requested-With' => 'XMLHttpRequest',
-                    'Origin'           => 'https://raines.africa',
+                    'Origin'           => 'https://onestopstore.co.zw',
                 ],
             ])->otherwise(function () {
                 // swallow errors; refresh should never block writes

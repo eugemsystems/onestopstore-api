@@ -104,14 +104,14 @@
             <div class="row"><span class="label" style="font-weight:700;color:#111827;flex:1">💰 Refund Destination</span></div>
             <div class="row">
                 <span class="label">Method</span>
-                <span class="value">Your Raines Africa Wallet</span>
+                <span class="value">Your One Stop Store Wallet</span>
             </div>
             <div class="row">
                 <span class="label">Amount</span>
                 <span class="value" style="color:#166534;font-weight:700;">{{ $currencySymbol }}{{ number_format($refund->amount, 2) }}</span>
             </div>
         </div>
-        <p>✅ Your Raines Africa Wallet has been credited with <strong>{{ $currencySymbol }}{{ number_format($refund->amount, 2) }}</strong>. You can use this balance for your next purchase.</p>
+        <p>✅ Your One Stop Store Wallet has been credited with <strong>{{ $currencySymbol }}{{ number_format($refund->amount, 2) }}</strong>. You can use this balance for your next purchase.</p>
     @else
         <p>✅ Your refund of <strong>{{ $currencySymbol }}{{ number_format($refund->amount, 2) }}</strong> will be processed to your registered payment account within 1–3 business days.</p>
     @endif
@@ -136,11 +136,11 @@
 @endif
 
 <div class="btn-wrap">
-    <a href="{{ env('FRONTEND_URL', 'https://raines.africa') }}/en/account/refunds" class="btn btn-primary">View Refund Status</a>
+    <a href="{{ env('FRONTEND_URL', 'https://onestopstore.co.zw') }}/en/account/refunds" class="btn btn-primary">View Refund Status</a>
 </div>
 
 <hr class="divider">
-<p style="font-size:13px;color:#6b7280">If you have any questions, reply to this email or contact us at <a href="mailto:admin@raines.africa" style="color:#C0392B">admin@raines.africa</a> &nbsp;|&nbsp; +263 779 411 028 &nbsp;|&nbsp; +260 777 265 389</p>
-<p style="color:#374151">Thank you for shopping with Raines Africa.</p>
+<p style="font-size:13px;color:#6b7280">If you have any questions, reply to this email or contact us at <a href="mailto:admin@onestopstore.co.zw" style="color:#C0392B">admin@onestopstore.co.zw</a> &nbsp;|&nbsp; +263 779 411 028 &nbsp;|&nbsp; +260 777 265 389</p>
+<p style="color:#374151">Thank you for shopping with One Stop Store.</p>
 
 @include('emails.partials.layout-close', ['isInteractive' => true])

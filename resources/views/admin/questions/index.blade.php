@@ -79,7 +79,7 @@
                 {{ $qna->product?->name ?? 'Unknown Product' }}
             </span>
             @if($qna->product?->slug)
-                <a href="https://raines.africa/{{ app()->getLocale() }}/product/{{ $qna->product->slug }}" target="_blank" class="ms-2" style="font-size:11px;color:#667eea">
+                <a href="https://onestopstore.co.zw/{{ app()->getLocale() }}/product/{{ $qna->product->slug }}" target="_blank" class="ms-2" style="font-size:11px;color:#667eea">
                     <i class="bi bi-box-arrow-up-right"></i> View
                 </a>
             @endif
@@ -115,7 +115,7 @@
         <div style="background:#f0fdf4;border-bottom:1px solid #bbf7d0">
             <div style="background:linear-gradient(135deg,#22c55e,#16a34a);padding:6px 16px;display:flex;align-items:center;gap:8px">
                 <div style="min-width:24px;height:24px;border-radius:50%;background:rgba(255,255,255,0.25);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:12px">A</div>
-                <span style="color:rgba(255,255,255,0.9);font-size:12px"><i class="bi bi-shop-window"></i> Raines Africa (Admin)</span>
+                <span style="color:rgba(255,255,255,0.9);font-size:12px"><i class="bi bi-shop-window"></i> One Stop Store (Admin)</span>
                 <button class="btn btn-sm ms-auto" style="background:rgba(255,255,255,0.2);color:#fff;font-size:11px;padding:2px 10px;border:none" onclick="toggleEditAnswer({{ $qna->id }})">
                     <i class="bi bi-pencil-fill"></i> Edit
                 </button>

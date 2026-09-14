@@ -360,7 +360,7 @@ class ThemeOptionSeeder extends Seeder
               "title" => "Disappointing Experience",
               "profile_image_url" => "$this->baseURL/frontend/images/data/user.png",
               "name" => "Ruth",
-              "review" => "I recently bought the sauce that i have been looking for a very long time. I was so happy that my order arrived in less than the stipulated time frame. Thank you soo much Raines Africa team for your excellent service. Keep up the good work.",
+              "review" => "I recently bought the sauce that i have been looking for a very long time. I was so happy that my order arrived in less than the stipulated time frame. Thank you soo much One Stop Store team for your excellent service. Keep up the good work.",
               "designation" => "Client"
             ],
             [

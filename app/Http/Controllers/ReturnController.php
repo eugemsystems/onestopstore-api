@@ -238,7 +238,7 @@ class ReturnController extends Controller
             \Mail::raw(
                 "New return request #{$return->id} on order #{$return->order_id} for product #{$return->product_id}. Preferred outcome: {$return->preferred_outcome}.",
                 function ($m) use ($return) {
-                    $m->to('admin@raines.africa')
+                    $m->to('admin@onestopstore.co.zw')
                       ->subject("New Return Request #{$return->id}");
                 }
             );

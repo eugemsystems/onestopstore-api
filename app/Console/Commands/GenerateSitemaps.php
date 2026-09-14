@@ -47,7 +47,7 @@ class GenerateSitemaps extends Command
         // "en" for backward compatibility; set it to an empty string to emit
         // bare URLs instead. SITEMAP_ENABLE_ZM_MIRROR controls whether a second
         // Zambia/ZMW-market URL set is emitted alongside the primary one.
-        $rawFrontend = rtrim(env('FRONTEND_URL', 'https://raines.africa'), '/');
+        $rawFrontend = rtrim(env('FRONTEND_URL', 'https://onestopstore.co.zw'), '/');
         $localePrefix = trim((string) env('SITEMAP_LOCALE_PREFIX', 'en'), '/');
         $this->frontendRoot = preg_replace('#/' . preg_quote($localePrefix ?: 'en', '#') . '$#', '', $rawFrontend);
         $this->baseUrl = $localePrefix ? "{$this->frontendRoot}/{$localePrefix}" : $this->frontendRoot;

@@ -16,7 +16,7 @@ class PromoTemplateSeeder extends Seeder
         $templateHtml = file_get_contents(base_path('template.html'));
 
         PromoTemplate::create([
-            'name' => 'Raines Africa Summer Promo',
+            'name' => 'One Stop Store Summer Promo',
             'description' => 'A professional promo flyer template with 12 product slots, perfect for Facebook and social media promotions. Features dynamic product loading from SKUs.',
             'html_content' => $templateHtml,
             'status' => 1,

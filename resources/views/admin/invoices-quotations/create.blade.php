@@ -952,7 +952,7 @@ function previewDocument() {
             <div style="background: linear-gradient(135deg, #11529c 0%, #0d3e75 100%); color: white; padding: 30px; border-bottom: 5px solid #e70810;">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <div>
-                        <img src="https://media.raines.africa/storage/uploads/2024/11/21/20/59/5e36d2aa-4258-4b6a-90c6-95e2ee80c3e9.png" alt="Raines Logo" style="height: 60px; margin-bottom: 10px;">
+                        <img src="https://media.onestopstore.co.zw/storage/uploads/2024/11/21/20/59/5e36d2aa-4258-4b6a-90c6-95e2ee80c3e9.png" alt="Raines Logo" style="height: 60px; margin-bottom: 10px;">
                         <h1 style="margin: 0; font-size: 32px;">RAINES</h1>
                         <p style="margin: 5px 0 0; font-size: 14px; opacity: 0.9;">Raines Technologies (PTY) LTD</p>
                     </div>

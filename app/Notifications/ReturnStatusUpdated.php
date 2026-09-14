@@ -77,7 +77,7 @@ class ReturnStatusUpdated extends Notification
             ->line($line2)
             ->line($extraText !== '' ? $extraText : null)
             ->line('Thank you for shopping with us.')
-            ->salutation('Regards,' . "\n" . 'Raines Africa');
+            ->salutation('Regards,' . "\n" . 'One Stop Store');
     }
 
     /**

@@ -25,7 +25,7 @@ return [
     'migration' => '.migration',
 
     'app' => [
-        'APP_NAME' => 'Raines Africa',
+        'APP_NAME' => 'One Stop Store',
         'APP_ENV' => '',
         'APP_DEBUG' => 'true',
         'APP_URL' => 'http://127.0.0.1:8000'

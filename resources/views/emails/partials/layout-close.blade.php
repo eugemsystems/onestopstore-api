@@ -3,18 +3,18 @@
 
     {{-- ── Footer ── --}}
     <div class="email-footer">
-        <p class="footer-brand">{{ config('app.name', 'Raines Africa') }}</p>
+        <p class="footer-brand">{{ config('app.name', 'One Stop Store') }}</p>
         @if(!empty($isInteractive) && $isInteractive)
-            <p>Questions? Email us at <a href="mailto:admin@raines.africa">admin@raines.africa</a></p>
+            <p>Questions? Email us at <a href="mailto:admin@onestopstore.co.zw">admin@onestopstore.co.zw</a></p>
         @else
             <p>This is an automated email. Please do not reply directly to this message.</p>
         @endif
         <p style="margin-top:12px;">
-            <a href="{{ config('app.frontend_url', 'https://raines.africa') }}">raines.africa</a>
+            <a href="{{ config('app.frontend_url', 'https://onestopstore.co.zw') }}">onestopstore.co.zw</a>
             &nbsp;|&nbsp;
-            <a href="mailto:admin@raines.africa">Contact Support</a>
+            <a href="mailto:admin@onestopstore.co.zw">Contact Support</a>
         </p>
-        <p style="margin-top:12px;">&copy; {{ date('Y') }} Raines Africa. All rights reserved.</p>
+        <p style="margin-top:12px;">&copy; {{ date('Y') }} One Stop Store. All rights reserved.</p>
     </div>
 
 </div>{{-- /.email-wrap --}}

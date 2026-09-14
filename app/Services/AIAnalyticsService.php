@@ -626,8 +626,8 @@ HTML;
                 'Content-Type'  => 'application/json',
             ];
             if (str_contains($url, 'openrouter')) {
-                $headers['HTTP-Referer'] = config('app.url', 'https://raines.africa');
-                $headers['X-Title']      = 'Raines Africa AI Analytics';
+                $headers['HTTP-Referer'] = config('app.url', 'https://onestopstore.co.zw');
+                $headers['X-Title']      = 'One Stop Store AI Analytics';
             }
 
             $res = Http::timeout(60)

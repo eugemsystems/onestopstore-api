@@ -1,5 +1,5 @@
 {{--
-    Shared email layout wrapper for Raines Africa emails.
+    Shared email layout wrapper for One Stop Store emails.
 
     Usage:
         @include('emails.partials.layout', [
@@ -21,7 +21,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <title>{{ $emailTitle ?? config('app.name', 'Raines Africa') }}</title>
+    <title>{{ $emailTitle ?? config('app.name', 'One Stop Store') }}</title>
     @if(!empty($preheader))
     <span style="display:none;font-size:1px;color:#fefefe;max-height:0;max-width:0;opacity:0;overflow:hidden;">
         {{ $preheader }}
@@ -211,8 +211,8 @@
 
     {{-- ── Header ── --}}
     <div class="email-header">
-        <img src="https://media.raines.africa/storage/uploads/2025/07/24/b35706e8-980f-4c6c-a87d-b0a24e6378fd.png"
-             alt="{{ config('app.name', 'Raines Africa') }}" />
+        <img src="https://media.onestopstore.co.zw/storage/uploads/2025/07/24/b35706e8-980f-4c6c-a87d-b0a24e6378fd.png"
+             alt="{{ config('app.name', 'One Stop Store') }}" />
     </div>
 
     {{-- ── Body ── --}}

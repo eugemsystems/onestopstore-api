@@ -183,7 +183,7 @@ PROMPT;
     {
         try {
             $headers = ['Authorization' => 'Bearer ' . $this->apiKey, 'Content-Type' => 'application/json'];
-            if (str_contains($url, 'openrouter')) { $headers['HTTP-Referer'] = config('app.url'); $headers['X-Title'] = 'Raines Africa Search'; }
+            if (str_contains($url, 'openrouter')) { $headers['HTTP-Referer'] = config('app.url'); $headers['X-Title'] = 'One Stop Store Search'; }
             $r = Http::timeout(15)->withHeaders($headers)->post($url, ['model' => $this->model, 'max_tokens' => $max, 'messages' => [['role' => 'system', 'content' => $system], ['role' => 'user', 'content' => $msg]]]);
             return $r->successful() ? ['success' => true, 'content' => $r->json('choices.0.message.content', '')] : ['success' => false, 'error' => $r->json('error.message', $r->body())];
         } catch (\Throwable $e) { return ['success' => false, 'error' => $e->getMessage()]; }

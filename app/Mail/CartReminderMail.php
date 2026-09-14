@@ -47,8 +47,8 @@ class CartReminderMail extends Mailable implements ShouldQueue
 
         return new Envelope(
             from: new Address(
-                env('MAIL_NOREPLY_ADDRESS', 'no-reply@raines.africa'),
-                env('MAIL_NOREPLY_NAME', 'Raines Africa')
+                env('MAIL_NOREPLY_ADDRESS', 'no-reply@onestopstore.co.zw'),
+                env('MAIL_NOREPLY_NAME', 'One Stop Store')
             ),
             subject: $subject,
         );
@@ -59,7 +59,7 @@ class CartReminderMail extends Mailable implements ShouldQueue
      */
     public function content(): Content
     {
-        $cartUrl = config('app.frontend_url', 'https://raines.africa') . '/' . app()->getLocale() . '/cart';
+        $cartUrl = config('app.frontend_url', 'https://onestopstore.co.zw') . '/' . app()->getLocale() . '/cart';
         $currencySymbol = \App\Models\Currency::where('system_reserve', 1)->value('symbol') ?? '$';
 
         return new Content(

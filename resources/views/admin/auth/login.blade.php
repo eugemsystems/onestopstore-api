@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Login - Raines Africa</title>
+    <title>Admin Login - One Stop Store</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <script>window.UI_API_LOGIN={{ app()->environment('local') ? 'true' : 'false' }};</script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -58,7 +58,7 @@
 <body>
     <div class="login-card">
         <div class="login-header">
-            <img src="{{ asset('light-logo.png') }}" alt="Raines Africa Logo" class="login-logo">
+            <img src="{{ asset('light-logo.png') }}" alt="One Stop Store Logo" class="login-logo">
             <h3 class="mt-3">Raines Admin</h3>
             <p class="mb-0">Sign in to continue</p>
         </div>

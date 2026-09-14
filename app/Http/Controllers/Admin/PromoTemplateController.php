@@ -178,7 +178,7 @@ class PromoTemplateController extends Controller
         }
 
         // Convert to base64 server-side so the browser never needs to fetch it
-        // (avoids CORS restrictions on external image hosts like media.raines.africa)
+        // (avoids CORS restrictions on external image hosts like media.onestopstore.co.zw)
         if ($bgUrl) {
             try {
                 $response = \Illuminate\Support\Facades\Http::timeout(15)->get($bgUrl);

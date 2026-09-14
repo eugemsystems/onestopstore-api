@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Storage;
  * and stores it at storage/app/public/feeds/google-merchant.xml
  *
  * Submit this URL to Google Merchant Center:
- *   https://api.raines.africa/storage/feeds/google-merchant.xml
+ *   https://api.onestopstore.co.zw/storage/feeds/google-merchant.xml
  *
  * Schedule: runs daily at 4 AM (after ES reindex at 3 AM d)
  */
@@ -31,7 +31,7 @@ class GenerateGoogleMerchantFeed extends Command
         $currency = strtoupper($this->option('currency') ?: 'USD');
         $dryRun   = $this->option('dry-run');
 
-        $frontendUrl = rtrim(env('FRONTEND_URL', 'https://raines.africa/en'), '/');
+        $frontendUrl = rtrim(env('FRONTEND_URL', 'https://onestopstore.co.zw/en'), '/');
 
         // Query active products — prioritise featured and sale items
         $query = DB::table('products')
@@ -87,7 +87,7 @@ class GenerateGoogleMerchantFeed extends Command
         fwrite($fp, '<?xml version="1.0" encoding="UTF-8"?>' . "\n");
         fwrite($fp, '<rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">' . "\n");
         fwrite($fp, "<channel>\n");
-        fwrite($fp, "  <title>Raines Africa Products</title>\n");
+        fwrite($fp, "  <title>One Stop Store Products</title>\n");
         fwrite($fp, "  <link>{$frontendUrl}</link>\n");
         fwrite($fp, "  <description>Quality products with fast delivery across Zimbabwe and Zambia</description>\n");
 
@@ -107,7 +107,7 @@ class GenerateGoogleMerchantFeed extends Command
                 $link  = "{$frontendUrl}/en/product/{$product->slug}?currency={$currency}";
                 $price = number_format((float) $product->price, 2, '.', '') . ' USD';
                 $availability = $product->stock_status === 'out_of_stock' ? 'out_of_stock' : 'in_stock';
-                $brand = $this->cleanXml($product->brand_name ?: 'Raines Africa');
+                $brand = $this->cleanXml($product->brand_name ?: 'One Stop Store');
                 $id = $product->sku ?: "RA-{$product->id}";
 
                 fwrite($fp, "  <item>\n");

@@ -61,8 +61,8 @@ class GiftVoucherMail extends Mailable implements ShouldQueue
     {
         return new Envelope(
             from: new Address(
-                env('MAIL_NOREPLY_ADDRESS', 'no-reply@raines.africa'),
-                env('MAIL_NOREPLY_NAME', 'Raines Africa')
+                env('MAIL_NOREPLY_ADDRESS', 'no-reply@onestopstore.co.zw'),
+                env('MAIL_NOREPLY_NAME', 'One Stop Store')
             ),
             subject: 'Your Gift Vouchers - Order #' . $this->order->order_number,
         );

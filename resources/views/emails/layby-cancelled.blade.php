@@ -53,7 +53,7 @@
 <p>We apologize for any inconvenience this may have caused.</p>
 
 <hr class="divider">
-<p style="font-size:13px;color:#6b7280">📧 admin@raines.africa &nbsp;|&nbsp; +263 779 411 028 &nbsp;|&nbsp; +260 777 265 389</p>
+<p style="font-size:13px;color:#6b7280">📧 admin@onestopstore.co.zw &nbsp;|&nbsp; +263 779 411 028 &nbsp;|&nbsp; +260 777 265 389</p>
 <p style="color:#374151">Thank you for your understanding.</p>
 
 @include('emails.partials.layout-close', ['isInteractive' => true])

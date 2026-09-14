@@ -28,7 +28,7 @@ class InvoiceQuotationMail extends Mailable
     {
         $this->document = $document;
         $this->customMessage = $customMessage;
-        $this->senderName = $senderName ?? 'Raines Africa';
+        $this->senderName = $senderName ?? 'One Stop Store';
     }
 
     /**
@@ -38,8 +38,8 @@ class InvoiceQuotationMail extends Mailable
     {
         return new Envelope(
             from: new Address(
-                env('MAIL_FROM_ADDRESS', 'admin@raines.africa'),
-                env('MAIL_FROM_NAME', 'Raines Africa')
+                env('MAIL_FROM_ADDRESS', 'admin@onestopstore.co.zw'),
+                env('MAIL_FROM_NAME', 'One Stop Store')
             ),
             subject: $this->document->getDocumentTypeLabel() . ' #' . $this->document->document_number,
         );

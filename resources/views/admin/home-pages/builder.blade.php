@@ -625,7 +625,7 @@
                                                         <input type="text" name="popup_images[zambia][{{ $i }}][image_url]"
                                                                class="form-control form-control-sm popup-img-url"
                                                                value="{{ $item['image_url'] }}"
-                                                               placeholder="https://media.raines.africa/storage/..."
+                                                               placeholder="https://media.onestopstore.co.zw/storage/..."
                                                                oninput="updateThumb(this)">
                                                     </div>
                                                     <div>
@@ -633,7 +633,7 @@
                                                         <input type="text" name="popup_images[zambia][{{ $i }}][link]"
                                                                class="form-control form-control-sm"
                                                                value="{{ $item['link'] }}"
-                                                               placeholder="https://raines.africa/collection/...">
+                                                               placeholder="https://onestopstore.co.zw/collection/...">
                                                     </div>
                                                 </div>
                                                 <button type="button" class="btn btn-sm btn-outline-danger mt-1" onclick="removeRow(this)">
@@ -670,7 +670,7 @@
                                                         <input type="text" name="popup_images[south_africa][{{ $i }}][image_url]"
                                                                class="form-control form-control-sm popup-img-url"
                                                                value="{{ $item['image_url'] }}"
-                                                               placeholder="https://media.raines.africa/storage/..."
+                                                               placeholder="https://media.onestopstore.co.zw/storage/..."
                                                                oninput="updateThumb(this)">
                                                     </div>
                                                     <div>
@@ -678,7 +678,7 @@
                                                         <input type="text" name="popup_images[south_africa][{{ $i }}][link]"
                                                                class="form-control form-control-sm"
                                                                value="{{ $item['link'] }}"
-                                                               placeholder="https://raines.africa/collection/...">
+                                                               placeholder="https://onestopstore.co.zw/collection/...">
                                                     </div>
                                                 </div>
                                                 <button type="button" class="btn btn-sm btn-outline-danger mt-1" onclick="removeRow(this)">
@@ -714,7 +714,7 @@
                                                         <input type="text" name="popup_images[other][{{ $i }}][image_url]"
                                                                class="form-control form-control-sm popup-img-url"
                                                                value="{{ $item['image_url'] }}"
-                                                               placeholder="https://media.raines.africa/storage/..."
+                                                               placeholder="https://media.onestopstore.co.zw/storage/..."
                                                                oninput="updateThumb(this)">
                                                     </div>
                                                     <div>
@@ -722,7 +722,7 @@
                                                         <input type="text" name="popup_images[other][{{ $i }}][link]"
                                                                class="form-control form-control-sm"
                                                                value="{{ $item['link'] }}"
-                                                               placeholder="https://raines.africa/collection/...">
+                                                               placeholder="https://onestopstore.co.zw/collection/...">
                                                     </div>
                                                 </div>
                                                 <button type="button" class="btn btn-sm btn-outline-danger mt-1" onclick="removeRow(this)">
@@ -860,14 +860,14 @@ function addPopupRow(group) {
                     <label class="form-label mb-0 small fw-semibold">Image URL</label>
                     <input type="text" name="popup_images[${group}][${idx}][image_url]"
                            class="form-control form-control-sm popup-img-url"
-                           placeholder="https://media.raines.africa/storage/..."
+                           placeholder="https://media.onestopstore.co.zw/storage/..."
                            oninput="updateThumb(this)">
                 </div>
                 <div>
                     <label class="form-label mb-0 small fw-semibold">Redirect Link <span class="text-muted fw-normal">(optional)</span></label>
                     <input type="text" name="popup_images[${group}][${idx}][link]"
                            class="form-control form-control-sm"
-                           placeholder="https://raines.africa/collection/...">
+                           placeholder="https://onestopstore.co.zw/collection/...">
                 </div>
             </div>
             <button type="button" class="btn btn-sm btn-outline-danger mt-1" onclick="removeRow(this)">

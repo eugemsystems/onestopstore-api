@@ -2,7 +2,7 @@ Dear {{ $vendorName }},
 
 UPDATE ON YOUR VENDOR APPLICATION
 
-Thank you for your interest in becoming a vendor on Raines Africa.
+Thank you for your interest in becoming a vendor on One Stop Store.
 
 After careful review of your application for {{ $storeName }}, we regret to inform you that we are unable to approve your vendor application at this time.
 
@@ -20,20 +20,20 @@ WHAT YOU CAN DO NEXT:
 NEED ASSISTANCE?
 Our team is here to help answer any questions you may have:
 
-📧 Email: admin@raines.africa
+📧 Email: admin@onestopstore.co.zw
 📞 Phone: +263779411028 / +260777265389
 📞 Phone: +263779411028
 
 SUBMIT NEW APPLICATION:
 {{ config('app.url') }}/en/seller/become-seller
 
-We appreciate your interest in partnering with Raines Africa and hope to work with you in the future.
+We appreciate your interest in partnering with One Stop Store and hope to work with you in the future.
 
 Best regards,
-The Raines Africa Team
+The One Stop Store Team
 
 ---
-This is an automated message from Raines Africa.
+This is an automated message from One Stop Store.
 Visit us at: {{ config('app.url') }}
-© {{ date('Y') }} Raines Africa. All rights reserved.
+© {{ date('Y') }} One Stop Store. All rights reserved.
 

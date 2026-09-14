@@ -4,17 +4,17 @@
 $companyAddresses = [
     'USD' => [ // Zimbabwe (USD)
         'address' => 'Shop No. 6 Rhodesville Shops, No 32 Rhodesville Avenue Greendale, Harare',
-        'email' => 'admin@raines.africa',
+        'email' => 'admin@onestopstore.co.zw',
         'phones' => ['+263 77 941 1028', '+263 71 716 8255']
     ],
     'ZMW' => [ // Zambia
         'address' => 'Niyati Plaza, Kalingalinga Area, 35235 Alick Nkhata Rd, Lusaka, Zambia',
-        'email' => 'admin@raines.africa',
+        'email' => 'admin@onestopstore.co.zw',
         'phones' => ['+260 77 726 5389', '+260 76 591 4363']
     ],
     'ZAR' => [ // South Africa
         'address' => '7 Nel Street Roodepoort 1724 South Africa',
-        'email' => 'admin@raines.africa',
+        'email' => 'admin@onestopstore.co.zw',
         'phones' => ['+27 XX XXX XXXX']
     ],
 ];
@@ -321,7 +321,7 @@ $validUntil = $generatedAt->copy()->addDays(7);
         <div class="header">
             <div class="logo-section">
                 <div class="logo-left">
-                    <img src="https://media.raines.africa/storage/uploads/2025/08/29/2a05a383-cf06-4d12-b728-ec37103526c5.png"
+                    <img src="https://media.onestopstore.co.zw/storage/uploads/2025/08/29/2a05a383-cf06-4d12-b728-ec37103526c5.png"
                          alt="Raines Logo" style="height: 50px; margin-bottom: 5px;">
                 </div>
                 <div class="logo-right">
@@ -476,7 +476,7 @@ $validUntil = $generatedAt->copy()->addDays(7);
         <div class="footer">
             <p><strong>Raines Technologies (PTY) LTD</strong></p>
             <p>{{ $companyInfo['address'] }}</p>
-            <p>Email: <span class="footer-accent">{{ $companyInfo['email'] }}</span> | Web: <span class="footer-accent">www.raines.africa</span></p>
+            <p>Email: <span class="footer-accent">{{ $companyInfo['email'] }}</span> | Web: <span class="footer-accent">www.onestopstore.co.zw</span></p>
             <p>Phone: @foreach($companyInfo['phones'] as $phone){{ $phone }}@if(!$loop->last) | @endif @endforeach</p>
             <p style="margin-top: 10px; font-size: 9px;">This quotation is computer-generated and is for informational purposes only. It does not constitute a binding order.</p>
         </div>

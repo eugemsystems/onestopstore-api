@@ -28,12 +28,12 @@ return [
             [env('APP_URL'), env('FRONTEND_URL'), env('BACKEND_URL'), env('IMAGE_API_URL')]
         ))))
         : [
-        'https://raines.africa',
-        'https://www.raines.africa',
-        'https://admin.raines.africa',
-        'https://www.admin.raines.africa',
-        'https://media.raines.africa',
-        'https://www.media.raines.africa',
+        'https://onestopstore.co.zw',
+        'https://www.onestopstore.co.zw',
+        'https://admin.onestopstore.co.zw',
+        'https://www.admin.onestopstore.co.zw',
+        'https://media.onestopstore.co.zw',
+        'https://www.media.onestopstore.co.zw',
     ],
 
     'allowed_origins_patterns' => config('app.env') === 'local'

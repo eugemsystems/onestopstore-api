@@ -537,7 +537,7 @@
                     <div class="mb-3">
                         <label class="form-label" style="font-size:.78rem;font-weight:700;color:#64748b;">Sender Name</label>
                         <input type="text" name="sender_name" class="form-control" style="border-radius:8px;font-size:.82rem;"
-                               value="Raines Africa" placeholder="Your Company Name">
+                               value="One Stop Store" placeholder="Your Company Name">
                     </div>
                     <div class="mb-3">
                         <label class="form-label" style="font-size:.78rem;font-weight:700;color:#64748b;">

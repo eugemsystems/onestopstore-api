@@ -1,6 +1,6 @@
-{{-- Invoice / Quotation email — admin@raines.africa (client can reply) --}}
+{{-- Invoice / Quotation email — admin@onestopstore.co.zw (client can reply) --}}
 @include('emails.partials.layout', [
-    'preheader'     => $document->getDocumentTypeLabel() . ' ' . $document->document_number . ' from Raines Africa',
+    'preheader'     => $document->getDocumentTypeLabel() . ' ' . $document->document_number . ' from One Stop Store',
     'emailTitle'    => $document->getDocumentTypeLabel() . ' — ' . $document->document_number,
     'isInteractive' => true,
 ])

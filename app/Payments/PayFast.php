@@ -211,7 +211,7 @@ class PayFast
                 'email_address' => $order->consumer->email,
                 'amount' => $amountZar,
                 //'item_name' => 'Order #'. $order->order_number,
-                'item_name' => 'Raines Africa',
+                'item_name' => 'One Stop Store',
                 'item_description' => 'Payment for order number:' . $order->order_number,
                 'custom_int1' => $order->id,//order id
                 'custom_int2' => $order->order_number,//order_number

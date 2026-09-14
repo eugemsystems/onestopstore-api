@@ -70,7 +70,7 @@
 @if($isApproved)
     <h2>What happens next?</h2>
     @if(in_array($return->preferred_outcome, ['credit', 'wallet']))
-        <p>✅ Your Raines Africa Wallet will be credited shortly. You can use this balance on your next purchase or request a withdrawal from your account.</p>
+        <p>✅ Your One Stop Store Wallet will be credited shortly. You can use this balance on your next purchase or request a withdrawal from your account.</p>
     @elseif($return->preferred_outcome === 'refund')
         <p>✅ A refund has been initiated for your order. You will receive a separate email once the refund is approved with your payment account details and transfer timeline.</p>
     @elseif($return->preferred_outcome === 'replacement')
@@ -93,11 +93,11 @@
 @endif
 
 <div class="btn-wrap">
-    <a href="{{ env('FRONTEND_URL', 'https://raines.africa') }}/en/account/returns" class="btn btn-primary">View Return Status</a>
+    <a href="{{ env('FRONTEND_URL', 'https://onestopstore.co.zw') }}/en/account/returns" class="btn btn-primary">View Return Status</a>
 </div>
 
 <hr class="divider">
-<p style="font-size:13px;color:#6b7280">Questions? Email us at <a href="mailto:admin@raines.africa" style="color:#C0392B">admin@raines.africa</a> &nbsp;|&nbsp; +263 779 411 028 &nbsp;|&nbsp; +260 777 265 389</p>
-<p style="color:#374151">Thank you for shopping with Raines Africa.</p>
+<p style="font-size:13px;color:#6b7280">Questions? Email us at <a href="mailto:admin@onestopstore.co.zw" style="color:#C0392B">admin@onestopstore.co.zw</a> &nbsp;|&nbsp; +263 779 411 028 &nbsp;|&nbsp; +260 777 265 389</p>
+<p style="color:#374151">Thank you for shopping with One Stop Store.</p>
 
 @include('emails.partials.layout-close', ['isInteractive' => true])

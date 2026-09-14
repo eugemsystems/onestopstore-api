@@ -1288,7 +1288,7 @@ class AdminInvoiceQuotationController extends Controller
 
                 $user = User::create([
                     'name' => $document->customer_name,
-                    'email' => $document->customer_email ?? 'noemail_' . time() . '@raines.africa',
+                    'email' => $document->customer_email ?? 'noemail_' . time() . '@onestopstore.co.zw',
                     'phone' => $phoneNumber,
                     'country_code' => $this->getCountryCodeFromCurrency($document->currency_code),
                     'password' => bcrypt(Str::random(16)),
@@ -1527,7 +1527,7 @@ class AdminInvoiceQuotationController extends Controller
                 new InvoiceQuotationMail(
                     $document,
                     $validated['message'],
-                    $validated['sender_name'] ?? 'Raines Africa'
+                    $validated['sender_name'] ?? 'One Stop Store'
                 )
             );
 
@@ -1540,7 +1540,7 @@ class AdminInvoiceQuotationController extends Controller
                 $validated['email'],
                 [
                     'recipient_email' => $validated['email'],
-                    'sender_name' => $validated['sender_name'] ?? 'Raines Africa',
+                    'sender_name' => $validated['sender_name'] ?? 'One Stop Store',
                     'has_custom_message' => !empty($validated['message']),
                     'message_preview' => substr($validated['message'], 0, 100),
                 ]

@@ -1,4 +1,4 @@
-{{-- Vendor Banned / Account Suspended — no-reply@raines.africa --}}
+{{-- Vendor Banned / Account Suspended — no-reply@onestopstore.co.zw --}}
 @include('emails.partials.layout', [
     'preheader'     => 'Important: Your vendor account for ' . $storeName . ' has been suspended',
     'emailTitle'    => 'Vendor Account Suspended',
@@ -13,7 +13,7 @@
 <p>Dear <strong>{{ $vendorName }}</strong>,</p>
 <p>
     We regret to inform you that your vendor account for <strong>{{ $storeName }}</strong> has been
-    <span style="color:#C0392B;font-weight:700;">SUSPENDED</span> on Raines Africa.
+    <span style="color:#C0392B;font-weight:700;">SUSPENDED</span> on One Stop Store.
 </p>
 
 @if($banReason)
@@ -39,12 +39,12 @@
     support team — include your <strong>Store ID: {{ $store->id }}</strong> in all communications.
 </p>
 <p style="font-size:14px;">
-    📧 <a href="mailto:admin@raines.africa" style="color:#C0392B;">admin@raines.africa</a>
+    📧 <a href="mailto:admin@onestopstore.co.zw" style="color:#C0392B;">admin@onestopstore.co.zw</a>
     &nbsp;|&nbsp; 📞 +263779411028 / +260777265389
 </p>
 
 <p>We take vendor compliance seriously to maintain the integrity of our marketplace. Thank you for your understanding.</p>
 
-<p>Best regards,<br><strong>The Raines Africa Team</strong></p>
+<p>Best regards,<br><strong>The One Stop Store Team</strong></p>
 
 @include('emails.partials.layout-close', ['isInteractive' => false])

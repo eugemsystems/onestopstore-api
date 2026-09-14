@@ -183,7 +183,7 @@ class GenerateProductFeed extends Command
 
                     $productUrl  = $frontendUrl . '/en/product/' . $product->slug . '?currency=' . $currencyCode;
                     $imageUrl    = $product->product_thumbnail ? $product->product_thumbnail->image_url : '';
-                    $brandName   = $product->brand && $product->brand->name ? $product->brand->name : config('app.name', 'Raines Africa');
+                    $brandName   = $product->brand && $product->brand->name ? $product->brand->name : config('app.name', 'One Stop Store');
                     $cleanName   = $this->removeControlCharacters($product->name);
                     $cleanDesc   = $this->removeControlCharacters(strip_tags($product->description ?? ''));
 
@@ -259,7 +259,7 @@ class GenerateProductFeed extends Command
                     $fmtSale      = $hasSale ? number_format($salePriceRaw * $rate, $decimals, '.', '') : null;
                     $productUrl   = $frontendUrl . '/product/' . $product->slug . '?currency=' . $currencyCode;
                     $imageUrl     = $product->product_thumbnail ? $product->product_thumbnail->image_url : '';
-                    $brandName    = $product->brand && $product->brand->name ? $product->brand->name : config('app.name', 'Raines Africa');
+                    $brandName    = $product->brand && $product->brand->name ? $product->brand->name : config('app.name', 'One Stop Store');
                     $cleanName    = $this->removeControlCharacters($product->name);
                     $cleanDesc    = $this->removeControlCharacters(strip_tags($product->description ?? ''));
 
@@ -358,7 +358,7 @@ class GenerateProductFeed extends Command
                     $fmtSale      = $hasSale ? number_format($salePriceRaw * $rate, $decimals, '.', '') . ' ' . $currencyCode : '';
                     $productUrl   = $frontendUrl . '/product/' . $product->slug . '?currency=' . $currencyCode;
                     $imageUrl     = $product->product_thumbnail ? $product->product_thumbnail->image_url : '';
-                    $brandName    = $product->brand && $product->brand->name ? $product->brand->name : config('app.name', 'Raines Africa');
+                    $brandName    = $product->brand && $product->brand->name ? $product->brand->name : config('app.name', 'One Stop Store');
 
                     $tsvBatch .= implode("\t", [
                         $product->id,
@@ -422,7 +422,7 @@ class GenerateProductFeed extends Command
                     $fmtSale      = $hasSale ? number_format($salePriceRaw * $rate, $decimals, '.', '') . ' ' . $currencyCode : '';
                     $productUrl   = $frontendUrl . '/product/' . $product->slug . '?currency=' . $currencyCode;
                     $imageUrl     = $product->product_thumbnail ? $product->product_thumbnail->image_url : '';
-                    $brandName    = $product->brand && $product->brand->name ? $product->brand->name : config('app.name', 'Raines Africa');
+                    $brandName    = $product->brand && $product->brand->name ? $product->brand->name : config('app.name', 'One Stop Store');
 
                     fwrite($partHandle, implode("\t", [
                         $product->id,

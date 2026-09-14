@@ -1,15 +1,15 @@
 {
     "openapi": "3.0.0",
     "info": {
-        "title": "Raines Africa E-Commerce API",
-        "description": "Comprehensive e-commerce API for Raines Africa platform. Features: Multi-vendor marketplace, Product variations, Layby payment plans, Seller registration, Advanced filtering, Elasticsearch integration, and Mobile app support.",
+        "title": "One Stop Store E-Commerce API",
+        "description": "Comprehensive e-commerce API for One Stop Store platform. Features: Multi-vendor marketplace, Product variations, Layby payment plans, Seller registration, Advanced filtering, Elasticsearch integration, and Mobile app support.",
         "contact": {
-            "name": "Raines Africa API Support",
-            "email": "dev@raines.africa"
+            "name": "One Stop Store API Support",
+            "email": "dev@onestopstore.co.zw"
         },
         "license": {
             "name": "Proprietary",
-            "url": "https://raines.africa/terms"
+            "url": "https://onestopstore.co.zw/terms"
         },
         "version": "1.0.2"
     },
@@ -1215,7 +1215,7 @@
                                                             },
                                                             "image_url": {
                                                                 "type": "string",
-                                                                "example": "https://media.raines.africa/brands/samsung.png"
+                                                                "example": "https://media.onestopstore.co.zw/brands/samsung.png"
                                                             }
                                                         },
                                                         "type": "object",

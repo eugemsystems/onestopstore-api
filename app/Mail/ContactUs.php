@@ -31,8 +31,8 @@ class ContactUs extends Mailable
     {
         return new Envelope(
             from: new Address(
-                env('MAIL_FROM_ADDRESS', 'admin@raines.africa'),
-                env('MAIL_FROM_NAME', 'Raines Africa')
+                env('MAIL_FROM_ADDRESS', 'admin@onestopstore.co.zw'),
+                env('MAIL_FROM_NAME', 'One Stop Store')
             ),
             subject: 'Contact Enquiry: ' . $this->contact->subject,
         );

@@ -775,7 +775,7 @@ class ImportFastController extends Controller
 
             // Send email notification to admin
             try {
-                \Illuminate\Support\Facades\Notification::route('mail', 'admin@raines.africa')
+                \Illuminate\Support\Facades\Notification::route('mail', 'admin@onestopstore.co.zw')
                     ->notify(new \App\Notifications\FastImportCompleted($importJob, $batchStats));
 
             } catch (\Throwable $emailError) {

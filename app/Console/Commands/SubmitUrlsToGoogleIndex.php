@@ -18,7 +18,7 @@ use Illuminate\Support\Facades\Cache;
  *   3. Add the service account email as an Owner in Google Search Console
  *   4. Place the key file at storage/app/google/service-account.json
  *      (or set GOOGLE_SERVICE_ACCOUNT_PATH in .env)
- *   5. Set FRONTEND_URL in .env (e.g., https://raines.africa/en)
+ *   5. Set FRONTEND_URL in .env (e.g., https://onestopstore.co.zw/en)
  *
  * Usage:
  *   php artisan google:submit-urls                 # submit last 24h of changes
@@ -47,7 +47,7 @@ class SubmitUrlsToGoogleIndex extends Command
         $backfill = (int) $this->option('backfill');
         $dryRun   = $this->option('dry-run');
 
-        $frontendUrl = rtrim(env('FRONTEND_URL', 'https://raines.africa/en'), '/');
+        $frontendUrl = rtrim(env('FRONTEND_URL', 'https://onestopstore.co.zw/en'), '/');
 
         // ── Load service account credentials ──────────────────────────
         $keyPath = env('GOOGLE_SERVICE_ACCOUNT_PATH', storage_path('app/google/service-account.json'));

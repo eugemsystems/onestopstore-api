@@ -118,7 +118,7 @@ class GenerateProductSEO extends Command
         }
 
         // Add site name
-        $parts[] = 'Raines Africa';
+        $parts[] = 'One Stop Store';
 
         // Combine (max 60 characters for SEO)
         $title = implode(' | ', $parts);
@@ -154,7 +154,7 @@ class GenerateProductSEO extends Command
             $parts[] = "in {$categoryNames}";
         }
 
-        $parts[] = 'at Raines Africa. Fast delivery across Zimbabwe and Zambia. Shop now!';
+        $parts[] = 'at One Stop Store. Fast delivery across Zimbabwe and Zambia. Shop now!';
 
         $description = implode(' ', $parts);
         return Str::limit($description, 155, '');

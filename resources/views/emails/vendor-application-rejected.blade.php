@@ -1,4 +1,4 @@
-{{-- Vendor Application Rejected — no-reply@raines.africa --}}
+{{-- Vendor Application Rejected — no-reply@onestopstore.co.zw --}}
 @include('emails.partials.layout', [
     'preheader'     => 'An update on your vendor application for ' . $storeName,
     'emailTitle'    => 'Vendor Application Update',
@@ -7,12 +7,12 @@
 
 <div class="email-heading-strip" style="background:linear-gradient(135deg,#6b7280 0%,#374151 100%);">
     <h1>Update on Your Vendor Application</h1>
-    <p>Raines Africa Vendor Program</p>
+    <p>One Stop Store Vendor Program</p>
 </div>
 
 <p>Dear <strong>{{ $vendorName }}</strong>,</p>
 <p>
-    Thank you for your interest in becoming a vendor on Raines Africa. After careful review of your
+    Thank you for your interest in becoming a vendor on One Stop Store. After careful review of your
     application for <strong>{{ $storeName }}</strong>, we regret that we are unable to approve your
     application at this time.
 </p>
@@ -40,11 +40,11 @@
 
 <p style="font-size:14px;">
     Need help? Contact our team at
-    <a href="mailto:admin@raines.africa" style="color:#C0392B;">admin@raines.africa</a>
+    <a href="mailto:admin@onestopstore.co.zw" style="color:#C0392B;">admin@onestopstore.co.zw</a>
     or call +263779411028 / +260777265389.
 </p>
 <p>We appreciate your interest and hope to work with you in the future.</p>
 
-<p>Best regards,<br><strong>The Raines Africa Team</strong></p>
+<p>Best regards,<br><strong>The One Stop Store Team</strong></p>
 
 @include('emails.partials.layout-close', ['isInteractive' => false])

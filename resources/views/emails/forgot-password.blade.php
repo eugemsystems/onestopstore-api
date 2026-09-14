@@ -1,13 +1,13 @@
-{{-- Forgot Password — no-reply@raines.africa --}}
+{{-- Forgot Password — no-reply@onestopstore.co.zw --}}
 @php
-    $appName = config('app.name', 'Raines Africa');
+    $appName = config('app.name', 'One Stop Store');
     $baseUrl  = config('app.frontend_url') ?? config('app.url') ?? url('/');
     $resetPath = rtrim(config('app.reset_password_path') ?? '/reset-password', '/');
     $resetUrl  = rtrim($baseUrl, '/') . $resetPath;
     $querySep  = parse_url($resetUrl, PHP_URL_QUERY) ? '&' : '?';
     $resetUrl .= $querySep . 'token=' . urlencode($token);
 @endphp
-@include('emails.partials.layout', ['preheader' => 'Reset your Raines Africa account password', 'emailTitle' => 'Reset Your Password', 'isInteractive' => false])
+@include('emails.partials.layout', ['preheader' => 'Reset your One Stop Store account password', 'emailTitle' => 'Reset Your Password', 'isInteractive' => false])
 
 <div class="email-heading-strip">
     <h1>🔒 Reset Your Password</h1>

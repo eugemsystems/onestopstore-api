@@ -100,10 +100,10 @@
 <p>If you have any questions or would like an update, please do not hesitate to contact our support team. We are here to help and will do everything in our power to make this right for you.</p>
 
 <div class="btn-wrap">
-    <a href="{{ env('FRONTEND_URL', 'https://raines.africa') }}/en/account/order/details/{{ $order->order_number }}" class="btn btn-primary">Track Your Order</a>
+    <a href="{{ env('FRONTEND_URL', 'https://onestopstore.co.zw') }}/en/account/order/details/{{ $order->order_number }}" class="btn btn-primary">Track Your Order</a>
 </div>
 
-<p style="color:#6b7280;font-size:13px">Once again, we sincerely apologise for any inconvenience caused. Thank you for your patience and for choosing Raines Africa.</p>
-<p style="color:#374151">Warm regards,<br><strong>The {{ config('app.name', 'Raines Africa') }} Team</strong></p>
+<p style="color:#6b7280;font-size:13px">Once again, we sincerely apologise for any inconvenience caused. Thank you for your patience and for choosing One Stop Store.</p>
+<p style="color:#374151">Warm regards,<br><strong>The {{ config('app.name', 'One Stop Store') }} Team</strong></p>
 
 @include('emails.partials.layout-close', ['isInteractive' => true])

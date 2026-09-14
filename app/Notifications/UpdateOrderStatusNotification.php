@@ -414,7 +414,7 @@ class UpdateOrderStatusNotification extends Notification implements ShouldQueue
 
             case 'ready for collection':
                 // Use order_notification template (the only one that exists)
-                $collectionLocation = $location ?: 'Raines Africa Collection Point';
+                $collectionLocation = $location ?: 'One Stop Store Collection Point';
                 $collectionHours = $order->collection_hours ?? 'Mon–Sat, 08:00–17:00';
 
                 // Map collection locations to Google Maps directions URLs
@@ -470,7 +470,7 @@ class UpdateOrderStatusNotification extends Notification implements ShouldQueue
                     $customerName,                                // body_1
                     $orderNumber,                                 // body_2
                     'Your order has been delivered successfully', // body_3
-                    'Thank you for choosing Raines Africa'        // body_4
+                    'Thank you for choosing One Stop Store'        // body_4
                 ];
                 $options = [
                     'language' => 'en',

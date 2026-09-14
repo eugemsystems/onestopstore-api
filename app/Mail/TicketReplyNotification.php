@@ -39,12 +39,12 @@ class TicketReplyNotification extends Mailable
         $isAdminReply = $this->message->isFromAdmin();
 
         $fromAddress = $isAdminReply
-            ? env('MAIL_FROM_ADDRESS', 'admin@raines.africa')
-            : env('MAIL_NOREPLY_ADDRESS', 'no-reply@raines.africa');
+            ? env('MAIL_FROM_ADDRESS', 'admin@onestopstore.co.zw')
+            : env('MAIL_NOREPLY_ADDRESS', 'no-reply@onestopstore.co.zw');
 
         $fromName = $isAdminReply
-            ? env('MAIL_FROM_NAME', 'Raines Africa')
-            : env('MAIL_NOREPLY_NAME', 'Raines Africa');
+            ? env('MAIL_FROM_NAME', 'One Stop Store')
+            : env('MAIL_NOREPLY_NAME', 'One Stop Store');
 
         return new Envelope(
             from: new Address($fromAddress, $fromName),

@@ -1306,7 +1306,7 @@
             const finalPrice = salePrice || originalPrice;
             const hasDiscount = salePrice && salePrice < originalPrice;
             const productSlug = product.slug || product.id;
-            const productUrl = `https://raines.africa/en/product/${productSlug}`;
+            const productUrl = `https://onestopstore.co.zw/en/product/${productSlug}`;
 
             const thumbnail = product.product_thumbnail?.image_url ||
                             product.product_thumbnail?.original_url ||

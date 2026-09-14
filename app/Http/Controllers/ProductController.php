@@ -162,7 +162,7 @@ class ProductController extends Controller
                                  ?? $product->product_thumbnail->image_url
                                  ?? $product->product_thumbnail->original_url;
 
-                        if ($imageUrl && !str_contains($imageUrl, 'proxy-image') && (str_contains($imageUrl, 'takealot.com') || str_contains($imageUrl, 'media.raines.africa'))) {
+                        if ($imageUrl && !str_contains($imageUrl, 'proxy-image') && (str_contains($imageUrl, 'takealot.com') || str_contains($imageUrl, 'media.onestopstore.co.zw'))) {
                             $proxiedUrl = url('/proxy-image?url=' . urlencode($imageUrl));
                             $product->product_thumbnail->image_url = $proxiedUrl;
                             $product->product_thumbnail->original_url = $proxiedUrl;
@@ -1244,7 +1244,7 @@ class ProductController extends Controller
                              ?? $product->product_thumbnail->original_url;
 
                     // Proxy external images to avoid CORS issues in PDF/Image export
-                    if ($imageUrl && !str_contains($imageUrl, 'proxy-image') && (str_contains($imageUrl, 'takealot.com') || str_contains($imageUrl, 'media.raines.africa'))) {
+                    if ($imageUrl && !str_contains($imageUrl, 'proxy-image') && (str_contains($imageUrl, 'takealot.com') || str_contains($imageUrl, 'media.onestopstore.co.zw'))) {
                         $imageUrl = url('/proxy-image?url=' . urlencode($imageUrl));
                     }
 
@@ -1323,7 +1323,7 @@ class ProductController extends Controller
                              ?? $product->product_thumbnail->original_url;
 
                     // Proxy external images
-                    if ($imageUrl && !str_contains($imageUrl, 'proxy-image') && (str_contains($imageUrl, 'takealot.com') || str_contains($imageUrl, 'media.raines.africa'))) {
+                    if ($imageUrl && !str_contains($imageUrl, 'proxy-image') && (str_contains($imageUrl, 'takealot.com') || str_contains($imageUrl, 'media.onestopstore.co.zw'))) {
                         $imageUrl = url('/proxy-image?url=' . urlencode($imageUrl));
                     }
 

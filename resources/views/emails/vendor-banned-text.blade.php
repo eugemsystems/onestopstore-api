@@ -2,7 +2,7 @@ Dear {{ $vendorName }},
 
 ⚠️ ACCOUNT SUSPENDED ⚠️
 
-We regret to inform you that your vendor account for {{ $storeName }} has been SUSPENDED on Raines Africa.
+We regret to inform you that your vendor account for {{ $storeName }} has been SUSPENDED on One Stop Store.
 
 @if($banReason)
 REASON FOR SUSPENSION:
@@ -18,7 +18,7 @@ WHAT THIS MEANS:
 WHAT YOU CAN DO:
 If you believe this suspension was made in error or if you would like to appeal this decision, please contact our support team immediately:
 
-📧 Email: admin@raines.africa
+📧 Email: admin@onestopstore.co.zw
 📞 Phone: +263779411028 | +260777265389
 
 IMPORTANT: Please include your Store ID ({{ $store->id }}) in all communications regarding this matter.
@@ -26,10 +26,10 @@ IMPORTANT: Please include your Store ID ({{ $store->id }}) in all communications
 We take vendor compliance seriously to maintain the integrity and quality of our marketplace. We appreciate your understanding.
 
 Best regards,
-The Raines Africa Team
+The One Stop Store Team
 
 ---
-This is an automated message from Raines Africa.
+This is an automated message from One Stop Store.
 Visit us at: {{ config('app.url') }}
-© {{ date('Y') }} Raines Africa. All rights reserved.
+© {{ date('Y') }} One Stop Store. All rights reserved.
 

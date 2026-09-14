@@ -23,16 +23,16 @@ NEXT STEPS:
 NEED HELP?
 Our support team is here to help you get started:
 
-📧 Email: admin@raines.africa
+📧 Email: admin@onestopstore.co.zw
 📞 Phone: +263779411028 / +260777265389
 
-We're excited to have you as part of the Raines Africa seller community!
+We're excited to have you as part of the One Stop Store seller community!
 
 Best regards,
-The Raines Africa Team
+The One Stop Store Team
 
 ---
-This is an automated message from Raines Africa.
+This is an automated message from One Stop Store.
 Visit us at: {{ config('app.url') }}
-© {{ date('Y') }} Raines Africa. All rights reserved.
+© {{ date('Y') }} One Stop Store. All rights reserved.
 

@@ -1,4 +1,4 @@
-{{-- Gift Vouchers — no-reply@raines.africa --}}
+{{-- Gift Vouchers — no-reply@onestopstore.co.zw --}}
 @include('emails.partials.layout', [
     'preheader'     => 'Your gift vouchers from Order #' . $order->order_number . ' are ready!',
     'emailTitle'    => 'Your Gift Vouchers',
@@ -66,6 +66,6 @@
 </div>
 
 <p>If you have any questions about your vouchers, contact our support team.</p>
-<p>Thank you for shopping with us!<br><strong>The Raines Africa Team</strong></p>
+<p>Thank you for shopping with us!<br><strong>The One Stop Store Team</strong></p>
 
 @include('emails.partials.layout-close', ['isInteractive' => false])

@@ -5,7 +5,7 @@ return [
     'documentations' => [
         'default' => [
             'api' => [
-                'title' => 'Raines Africa API',
+                'title' => 'One Stop Store API',
                 'version' => '1.0.1',
             ],
 

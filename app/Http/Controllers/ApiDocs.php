@@ -6,16 +6,16 @@ use OpenApi\Annotations as OA;
 
 /**
  * @OA\Info(
- *   title="Raines Africa E-Commerce API",
+ *   title="One Stop Store E-Commerce API",
  *   version="1.0.2",
- *   description="Comprehensive e-commerce API for Raines Africa platform. Features: Multi-vendor marketplace, Product variations, Layby payment plans, Seller registration, Advanced filtering, Elasticsearch integration, and Mobile app support.",
+ *   description="Comprehensive e-commerce API for One Stop Store platform. Features: Multi-vendor marketplace, Product variations, Layby payment plans, Seller registration, Advanced filtering, Elasticsearch integration, and Mobile app support.",
  *   @OA\Contact(
- *     email="dev@raines.africa",
- *     name="Raines Africa API Support"
+ *     email="dev@onestopstore.co.zw",
+ *     name="One Stop Store API Support"
  *   ),
  *   @OA\License(
  *     name="Proprietary",
- *     url="https://raines.africa/terms"
+ *     url="https://onestopstore.co.zw/terms"
  *   )
  * )
  *

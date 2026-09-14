@@ -30,8 +30,8 @@ class LateDeliveryApologyMail extends Mailable implements ShouldQueue
     {
         return new Envelope(
             from: new Address(
-                config('mail.noreply_address', 'no-reply@raines.africa'),
-                config('mail.noreply_name', 'Raines Africa')
+                config('mail.noreply_address', 'no-reply@onestopstore.co.zw'),
+                config('mail.noreply_name', 'One Stop Store')
             ),
             subject: 'We sincerely apologise for your order delay — Order #' . $this->order->order_number,
         );

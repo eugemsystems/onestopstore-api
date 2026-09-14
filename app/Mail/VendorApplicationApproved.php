@@ -35,10 +35,10 @@ class VendorApplicationApproved extends Mailable
     {
         return new Envelope(
             from: new Address(
-                env('MAIL_NOREPLY_ADDRESS', 'no-reply@raines.africa'),
-                env('MAIL_NOREPLY_NAME', 'Raines Africa')
+                env('MAIL_NOREPLY_ADDRESS', 'no-reply@onestopstore.co.zw'),
+                env('MAIL_NOREPLY_NAME', 'One Stop Store')
             ),
-            subject: '🎉 Your Vendor Application Has Been Approved! - Raines Africa',
+            subject: '🎉 Your Vendor Application Has Been Approved! - One Stop Store',
         );
     }
 

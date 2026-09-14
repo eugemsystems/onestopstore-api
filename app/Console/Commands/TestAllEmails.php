@@ -84,7 +84,7 @@ class TestAllEmails extends Command
             return self::SUCCESS;
         }
 
-        $this->to = $this->option('to') ?? env('MAIL_FROM_ADDRESS', 'admin@raines.africa');
+        $this->to = $this->option('to') ?? env('MAIL_FROM_ADDRESS', 'admin@onestopstore.co.zw');
 
         $only = $this->option('only')
             ? array_map('trim', explode(',', $this->option('only')))
@@ -359,8 +359,8 @@ class TestAllEmails extends Command
      */
     private function sendLaybyView(string $view, array $data, string $subject): void
     {
-        $noreply = env('MAIL_NOREPLY_ADDRESS', 'no-reply@raines.africa');
-        $name    = env('MAIL_NOREPLY_NAME', 'Raines Africa');
+        $noreply = env('MAIL_NOREPLY_ADDRESS', 'no-reply@onestopstore.co.zw');
+        $name    = env('MAIL_NOREPLY_NAME', 'One Stop Store');
 
         Mail::send($view, $data, function (\Illuminate\Mail\Message $msg) use ($subject, $noreply, $name) {
             $msg->to($this->to)

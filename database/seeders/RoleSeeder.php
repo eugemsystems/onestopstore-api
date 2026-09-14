@@ -426,7 +426,7 @@ class RoleSeeder extends Seeder
             'city' => 'Harare',
             'address' => 'Shop No. 6 Rhodesville Shops. No 32 Rhodesville Avenue Greendale, Harare',
             'pincode' => '',
-            'facebook' => "https://www.facebook.com/raines.africa/",
+            'facebook' => "https://www.facebook.com/onestopstore.co.zw/",
             'twitter' => "https://twitter.com/rainesafrica?lang=en",
             'instagram'=> 'https://www.instagram.com/rainesafrica/?hl=en',
             'youtube'=> null,

@@ -60,7 +60,7 @@ class BrandController extends Controller
      *             type="object",
      *             nullable=true,
      *             @OA\Property(property="id", type="integer", example=123),
-     *             @OA\Property(property="image_url", type="string", example="https://media.raines.africa/brands/samsung.png")
+     *             @OA\Property(property="image_url", type="string", example="https://media.onestopstore.co.zw/brands/samsung.png")
      *           )
      *         )
      *       ),

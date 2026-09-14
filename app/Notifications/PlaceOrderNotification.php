@@ -435,7 +435,7 @@ class PlaceOrderNotification extends Notification implements ShouldQueue
 
                 // TODO: replace with your actual fields
                 $collectionLocation = $order->collection_location
-                    ?? 'Raines Africa Collection Point';
+                    ?? 'One Stop Store Collection Point';
                 $collectionHours = $order->collection_hours
                     ?? 'Mon–Sat, 08:00–17:00';
 

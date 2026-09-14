@@ -1,6 +1,6 @@
 @extends('admin.layout')
 
-@section('title', 'AI Analytics — Raines Africa Admin')
+@section('title', 'AI Analytics — One Stop Store Admin')
 
 @section('content')
 <style>

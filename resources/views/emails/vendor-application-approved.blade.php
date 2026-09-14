@@ -1,4 +1,4 @@
-{{-- Vendor Application Approved — no-reply@raines.africa --}}
+{{-- Vendor Application Approved — no-reply@onestopstore.co.zw --}}
 @include('emails.partials.layout', [
     'preheader'     => 'Your vendor application for ' . $storeName . ' has been approved!',
     'emailTitle'    => 'Vendor Application Approved',
@@ -7,7 +7,7 @@
 
 <div class="email-heading-strip">
     <h1>🎉 Application Approved!</h1>
-    <p>Your vendor account on Raines Africa is now active</p>
+    <p>Your vendor account on One Stop Store is now active</p>
 </div>
 
 <p>Dear <strong>{{ $vendorName }}</strong>,</p>
@@ -15,7 +15,7 @@
     We're delighted to inform you that your vendor application for
     <strong>{{ $storeName }}</strong> has been
     <span style="color:#166534;font-weight:700;">APPROVED</span>!
-    You can now start listing products and selling on Raines Africa.
+    You can now start listing products and selling on One Stop Store.
 </p>
 
 <div class="highlight-box">
@@ -44,11 +44,11 @@
 <hr class="divider">
 <h2>Need Help?</h2>
 <p style="font-size:14px;">Our support team is here to help — contact us at
-    <a href="mailto:admin@raines.africa" style="color:#C0392B;">admin@raines.africa</a>
+    <a href="mailto:admin@onestopstore.co.zw" style="color:#C0392B;">admin@onestopstore.co.zw</a>
     or call +263779411028 / +260777265389.
 </p>
-<p>We're excited to have you as part of the Raines Africa seller community!</p>
+<p>We're excited to have you as part of the One Stop Store seller community!</p>
 
-<p>Best regards,<br><strong>The Raines Africa Team</strong></p>
+<p>Best regards,<br><strong>The One Stop Store Team</strong></p>
 
 @include('emails.partials.layout-close', ['isInteractive' => false])
