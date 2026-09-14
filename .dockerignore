@@ -21,4 +21,5 @@ storage/app/public
 storage/app/jsonfiles
 storage/app/jsonfiles-update
 storage/app/temp
+storage/app/backups
 storage/debugbar
