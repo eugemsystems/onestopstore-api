@@ -180,33 +180,63 @@ class AdminAuthController extends Controller
             return $q;
         };
 
+        // Canonical currency_symbol per currency code, from the currencies table — the
+        // per-order currency_symbol column has drifted (e.g. ZMW rows stored as both
+        // "ZK" and "k"), so MIN(currency_symbol) picked an inconsistent/wrong symbol.
+        $currencySymbols = \App\Models\Currency::query()->pluck('symbol', 'code')
+            ->mapWithKeys(fn ($symbol, $code) => [strtoupper($code) => $symbol]);
+
+        // Order each currency row by its exchange-rate-normalised total, not the raw
+        // currency amount — ZMW's raw totals are numerically much larger than USD's
+        // for the same real value (weak exchange rate), so ordering by raw total let
+        // a Kwacha total be sorted first/bolded and misread as the USD figure.
+        $normaliseCurrencyRows = function ($rows) use ($currencySymbols) {
+            return $rows->map(function ($row) use ($currencySymbols) {
+                $row->currency_symbol = $currencySymbols[strtoupper($row->currency)] ?? $row->currency_symbol;
+                return $row;
+            })->sortByDesc('normalised_total')->values();
+        };
+
+        // exchange_rate is stored as "local units per 1 USD" (USD itself is always 1),
+        // so converting a local total back to its USD-equivalent means DIVIDING by the
+        // rate, not multiplying — multiplying inflates weak currencies like ZMW even
+        // further and was why Kwacha kept out-ranking USD.
+        $normalisedTotalExpr = 'SUM(total / COALESCE(NULLIF(exchange_rate, 0), 1)) as normalised_total';
+
         // ── Revenue KPI (date-filtered, GROUP BY currency only to avoid duplicates) ──
-        $revenueByCurrency = $basePaidOrders()
-            ->selectRaw('currency, MIN(currency_symbol) as currency_symbol, SUM(total) as total_amount')
-            ->groupBy('currency')->orderByDesc('total_amount')->get();
+        $revenueByCurrency = $normaliseCurrencyRows(
+            $basePaidOrders()
+                ->selectRaw("currency, MIN(currency_symbol) as currency_symbol, SUM(total) as total_amount, {$normalisedTotalExpr}")
+                ->groupBy('currency')->get()
+        );
 
         // "This Month" KPI: when a range is active show period totals, otherwise true month
         if ($range === 'all') {
-            $thisMonthByCurrency = \Illuminate\Support\Facades\DB::table('orders')
-                ->whereNull('parent_id')->whereNull('deleted_at')->whereIn('payment_status', ['COMPLETED','COMPLETE','SUCCESS'])
-                ->whereMonth('created_at', now()->month)->whereYear('created_at', now()->year)
-                ->selectRaw('currency, MIN(currency_symbol) as currency_symbol, SUM(total) as total_amount')
-                ->groupBy('currency')->orderByDesc('total_amount')->get();
+            $thisMonthByCurrency = $normaliseCurrencyRows(
+                \Illuminate\Support\Facades\DB::table('orders')
+                    ->whereNull('parent_id')->whereNull('deleted_at')->whereIn('payment_status', ['COMPLETED','COMPLETE','SUCCESS'])
+                    ->whereMonth('created_at', now()->month)->whereYear('created_at', now()->year)
+                    ->selectRaw("currency, MIN(currency_symbol) as currency_symbol, SUM(total) as total_amount, {$normalisedTotalExpr}")
+                    ->groupBy('currency')->get()
+            );
         } else {
             // Re-use the same date-filtered totals so the column is consistent with range
             $thisMonthByCurrency = $revenueByCurrency;
         }
 
-        // Month-over-month % change (always vs calendar months, not date range)
+        // Month-over-month % change (always vs calendar months, not date range).
+        // Divide by exchange_rate to get the USD-equivalent (see note above) — this was
+        // previously multiplying, which let Kwacha orders swamp the comparison and made
+        // the "vs last month" % on the This Month card meaningless whenever ZMW sales existed.
         $lastMonthNormalised = \Illuminate\Support\Facades\DB::table('orders')
             ->whereNull('parent_id')->whereNull('deleted_at')->whereIn('payment_status', ['COMPLETED','COMPLETE','SUCCESS'])
             ->whereMonth('created_at', now()->subMonth()->month)->whereYear('created_at', now()->subMonth()->year)
-            ->sum(\Illuminate\Support\Facades\DB::raw('total * COALESCE(exchange_rate, 1)'));
+            ->sum(\Illuminate\Support\Facades\DB::raw('total / COALESCE(NULLIF(exchange_rate, 0), 1)'));
 
         $thisMonthNormalised = \Illuminate\Support\Facades\DB::table('orders')
             ->whereNull('parent_id')->whereNull('deleted_at')->whereIn('payment_status', ['COMPLETED','COMPLETE','SUCCESS'])
             ->whereMonth('created_at', now()->month)->whereYear('created_at', now()->year)
-            ->sum(\Illuminate\Support\Facades\DB::raw('total * COALESCE(exchange_rate, 1)'));
+            ->sum(\Illuminate\Support\Facades\DB::raw('total / COALESCE(NULLIF(exchange_rate, 0), 1)'));
 
         $revChange = $lastMonthNormalised > 0
             ? round((($thisMonthNormalised - $lastMonthNormalised) / $lastMonthNormalised) * 100, 1)

@@ -181,6 +181,9 @@ Route::apiResource('attribute-value', 'App\Http\Controllers\AttributeValueContro
 ]);
 
 // Categories
+// Must be registered before the apiResource's GET category/{category}, otherwise
+// "slug" would be matched as a {category} route-model-binding ID and 404.
+Route::middleware('throttle:120,1')->get('category/slug/{slug}', 'App\Http\Controllers\CategoryController@getCategoryBySlug')->where('slug', '[A-Za-z0-9\-\_]+');
 Route::apiResource('category', 'App\Http\Controllers\CategoryController',[
   'only' => ['index', 'show', 'indexFront'],
 ]);
@@ -452,6 +455,7 @@ Route::group(['middleware' => ['localization','auth:sanctum']], function () {
   Route::post('order/{order}/cancel-item', 'App\Http\Controllers\OrderController@adminCancelItem')->middleware('can:order.edit');
   Route::apiResource('order', 'App\Http\Controllers\OrderController');
   Route::post('checkout','App\Http\Controllers\CheckoutController@verifyCheckout');
+  Route::post('checkout/quotation-pdf', [\App\Http\Controllers\CheckoutQuotationController::class, 'download']);
   Route::apiResource('order-notes', 'App\Http\Controllers\OrderNoteController')->except(['create','edit']);
   Route::post('rePayment', 'App\Http\Controllers\OrderController@rePayment');
   Route::get('trackOrder/{order_number}', 'App\Http\Controllers\OrderController@trackOrder');

@@ -24,12 +24,22 @@ class SitemapApiController extends Controller
         return $default;
     }
 
-    /** apply common visibility filters (status/is_approved, soft deletes) */
+    /**
+     * Apply common visibility filters (status, is_approved, soft deletes).
+     * Both `status` and `is_approved` must independently be satisfied when
+     * present — e.g. products carry both columns, and a product can have
+     * status=1 while pending/failing approval (is_approved=0). Matching only
+     * one of the two (the old `elseif` here) let such products into the
+     * sitemap while ProductRepository::getProductBySlug() requires both,
+     * producing a 404 when clicked.
+     */
     private function applyVisibility(string $table, $query)
     {
         if (Schema::hasColumn($table, 'status')) {
             $query->where("{$table}.status", 1);
-        } elseif (Schema::hasColumn($table, 'is_approved')) {
+        }
+
+        if (Schema::hasColumn($table, 'is_approved')) {
             $query->where("{$table}.is_approved", 1);
         }
 

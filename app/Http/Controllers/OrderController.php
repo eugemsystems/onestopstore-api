@@ -1085,14 +1085,13 @@ class OrderController extends Controller
             // The main order status and item statuses are independent.
             // Item statuses track per-product progress; the main order status is set manually from the CRM.
 
-            // Auto-credit wallet when the CRM marks an item as out of stock.
-            // Fires when: request comes from CRM (X-From-CRM header) AND
-            // the new status is out_of_stock AND the item was not already out of stock.
+            // Auto-credit wallet whenever an item transitions into out_of_stock.
+            // Fires once per item (guarded by $wasAlreadyOutOfStock) regardless of
+            // caller (CRM webhook or admin panel), since this endpoint already
+            // requires Sanctum auth.
             $outOfStockStatuses = ['out_of_stock', 'out of stock'];
             $isOutOfStock = in_array(strtolower(trim($itemStatus)), $outOfStockStatuses);
             $wasAlreadyOutOfStock = in_array(strtolower(trim($orderProduct->item_status ?? '')), $outOfStockStatuses);
-            $fromCrm  = (bool) $request->header('X-From-CRM');
-            $crmActor = trim((string) $request->header('X-CRM-Actor', ''));
 
             Log::info('OOS credit check', [
                 'order_number'          => $order->order_number,
@@ -1100,17 +1099,16 @@ class OrderController extends Controller
                 'previous_item_status'  => $orderProduct->item_status,
                 'is_out_of_stock'       => $isOutOfStock,
                 'was_already_oos'       => $wasAlreadyOutOfStock,
-                'from_crm'              => $fromCrm,
-                'crm_actor'             => $crmActor,
                 'consumer_id'           => $order->consumer_id,
                 'subtotal'              => $orderProduct->subtotal,
                 'single_price'          => $orderProduct->single_price,
                 'quantity'              => $orderProduct->quantity,
             ]);
 
-            if ($isOutOfStock && !$wasAlreadyOutOfStock && $fromCrm && $crmActor === 'super-admin@raines.africa') {
+            if ($isOutOfStock && !$wasAlreadyOutOfStock) {
+                $consumerId = $order->consumer_id;
+
                 try {
-                    $consumerId = $order->consumer_id;
                     // Credit amount = line subtotal; fall back to unit price × qty if subtotal is zero
                     $creditAmount = (float) ($orderProduct->subtotal ?: ($orderProduct->single_price * ($orderProduct->quantity ?: 1)));
 
@@ -1129,13 +1127,52 @@ class OrderController extends Controller
                             'consumer_id'  => $consumerId,
                             'amount'       => $creditAmount,
                             'product'      => $productLabel,
-                            'crm_actor'    => $crmActor,
                         ]);
                     }
                 } catch (\Throwable $creditException) {
                     Log::error('Failed to auto-credit wallet for out of stock item', [
                         'order_number' => $order->order_number,
                         'error'        => $creditException->getMessage(),
+                    ]);
+                    // Do not fail the item status update if the credit fails
+                }
+
+                // If every item on the order is now out of stock, the shipping fee
+                // was never actually going to be fulfilled either — credit it too.
+                // A single-item order counts here as well, since that one item
+                // becoming OOS makes the whole order OOS.
+                try {
+                    $remainingNotOutOfStock = DB::table('order_products')
+                        ->where('order_id', $order->id)
+                        ->whereNull('deleted_at')
+                        ->whereRaw('LOWER(TRIM(item_status)) NOT IN (?, ?)', $outOfStockStatuses)
+                        ->exists();
+
+                    if (!$remainingNotOutOfStock && !$order->shipping_refunded_at && $consumerId) {
+                        $shippingAmount = (float) ($order->shipping_total ?? 0) + (float) ($order->fast_shipping_total ?? 0);
+
+                        if ($shippingAmount > 0) {
+                            $shippingRemark = WalletPointsDetail::OUT_OF_STOCK_SHIPPING_CREDIT
+                                . ' — Order #' . $order->order_number;
+
+                            $this->creditWallet($consumerId, $shippingAmount, $shippingRemark);
+
+                            DB::table('orders')->where('id', $order->id)->update([
+                                'shipping_refunded_at' => now(),
+                                'updated_at' => now(),
+                            ]);
+
+                            Log::info('Auto-credited wallet for shipping — entire order out of stock', [
+                                'order_number' => $order->order_number,
+                                'consumer_id'  => $consumerId,
+                                'amount'       => $shippingAmount,
+                            ]);
+                        }
+                    }
+                } catch (\Throwable $shippingCreditException) {
+                    Log::error('Failed to auto-credit wallet for shipping fee (entire order out of stock)', [
+                        'order_number' => $order->order_number,
+                        'error'        => $shippingCreditException->getMessage(),
                     ]);
                     // Do not fail the item status update if the credit fails
                 }
@@ -1208,9 +1245,11 @@ class OrderController extends Controller
         $roleName = Helpers::getCurrentRoleName();
         $currentUserId = Helpers::getCurrentUserId();
 
-        // DEBUG: Log filter entry
-
-        // Role-based filtering
+        // Role-based filtering. Fails CLOSED: any role that isn't recognized
+        // (e.g. a token whose role_type never got backfilled) falls through to
+        // "my own orders only" instead of an unfiltered query — that fall-through
+        // is exactly what turned a token-backfill bug into every user's orders
+        // being served to a brand-new registrant.
         if ($roleName == RoleEnum::CONSUMER) {
             // Defensive: if no authenticated user, return empty result to avoid leaking data
             if (empty($currentUserId)) {
@@ -1218,9 +1257,7 @@ class OrderController extends Controller
             }
 
             $orders = $orders->where('consumer_id', $currentUserId);
-        }
-
-        if ($roleName == RoleEnum::VENDOR) {
+        } elseif ($roleName == RoleEnum::VENDOR) {
             $vendorStoreId = Helpers::getCurrentVendorStoreId();
 
             // Filter orders that contain products belonging to this vendor's store.
@@ -1229,6 +1266,15 @@ class OrderController extends Controller
             $orders = $orders->whereHas('products', function ($q) use ($vendorStoreId) {
                 $q->where('products.store_id', $vendorStoreId);
             });
+        } elseif ($roleName == RoleEnum::ADMIN) {
+            // Admins intentionally see everything — no filter.
+        } else {
+            // Defensive: if no authenticated user, return empty result to avoid leaking data
+            if (empty($currentUserId)) {
+                return $orders->whereRaw('1 = 0');
+            }
+
+            $orders = $orders->where('consumer_id', $currentUserId);
         }
 
         // Additional filters

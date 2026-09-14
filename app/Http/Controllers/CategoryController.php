@@ -104,6 +104,39 @@ class CategoryController extends Controller
     }
 
     /**
+     * @OA\Get(
+     *   path="/api/category/slug/{slug}",
+     *   tags={"Categories"},
+     *   summary="Get a category by slug",
+     *   @OA\Parameter(name="slug", in="path", required=true, @OA\Schema(type="string")),
+     *   @OA\Response(response=200, description="OK"),
+     *   @OA\Response(response=404, description="Not found")
+     * )
+     */
+    public function getCategoryBySlug($slug)
+    {
+        if (!is_string($slug) || !preg_match('/^[A-Za-z0-9\-\_]+$/', $slug)) {
+            return response()->json(['message' => 'Invalid slug.'], 400);
+        }
+
+        $version = $this->getCategoriesCacheVersion();
+        $cacheKey = "category_slug:{$slug}:v{$version}";
+
+        $category = Cache::remember($cacheKey, now()->addMinutes(10), function () use ($slug) {
+            return Category::where('slug', $slug)->where('status', 1)->first();
+        });
+
+        if (!$category) {
+            return response()->json(['message' => 'Category not found.', 'slug' => $slug], 404);
+        }
+
+        return response()
+            ->json($category)
+            ->setPublic()
+            ->setMaxAge(600);
+    }
+
+    /**
      * Show the form for creating a new resource.
      *
      * @return \Illuminate\Http\Response

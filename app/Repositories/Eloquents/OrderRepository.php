@@ -9,6 +9,7 @@ use App\Payments\Yoco;
 use Exception;
 use Carbon\Carbon;
 use App\Models\Order;
+use App\Models\Cart;
 use App\Payments\Cod;
 use App\Payments\BankTransfer;
 use App\Payments\Mollie;
@@ -253,7 +254,19 @@ class OrderRepository extends BaseRepository
             }
 
             DB::commit();
-            //Helpers::removeCart($order);
+
+            // Wipe the consumer's server-side cart now that the order is placed.
+            // Best-effort and outside the transaction: a failure here must never
+            // block or roll back an already-committed order. Guarded to the
+            // top-level order only, since createSubOrder() is called from inside
+            // this same method and would otherwise re-run this per sub-order.
+            try {
+                if (is_null($order->parent_id)) {
+                    Cart::where('consumer_id', $order->consumer_id)->delete();
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Post-order cart clear failed', ['order_id' => $order->id, 'error' => $e->getMessage()]);
+            }
 
             $order = $order->fresh();
 
@@ -721,6 +734,10 @@ class OrderRepository extends BaseRepository
                             ->where('order_id', $order->id)
                             ->whereNull('deleted_at')
                             ->whereIn('item_status', $statusesToUpdate)
+                            // Items already marked out of stock are managed independently
+                            // (per-item, via the CRM) and must never be overwritten by the
+                            // order-level status cascade.
+                            ->whereRaw("LOWER(TRIM(item_status)) NOT IN ('out_of_stock', 'out of stock')")
                             ->update(['item_status' => $newItemStatus, 'updated_at' => now()]);
                     }
                     // Log items after update
@@ -803,9 +820,13 @@ class OrderRepository extends BaseRepository
                     }
                 }
 
-                // Award loyalty points when order is first marked as DELIVERED
-                if ($statusName == OrderEnum::DELIVERED
-                    && $oldStatusName != OrderEnum::DELIVERED
+                // Award loyalty points when the order first reaches a completed state
+                // (DELIVERED or COLLECTED). Guard against double-crediting if it later
+                // bounces between the two — only fire on the transition INTO either from
+                // neither.
+                $completedStatuses = [OrderEnum::DELIVERED, OrderEnum::COLLECTED];
+                if (in_array($statusName, $completedStatuses)
+                    && !in_array($oldStatusName, $completedStatuses)
                     && $order->consumer_id
                     && Helpers::pointIsEnable()) {
                     try {

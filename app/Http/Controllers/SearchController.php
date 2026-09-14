@@ -907,9 +907,14 @@ class SearchController extends Controller
 
                 // Compute layby_eligibility from stored data
                 if (!isset($product['layby_eligibility'])) {
-                    $isLaybyEligible = $product['layby_eligible'] ?? false;
-                    if (!$isLaybyEligible) {
-                        // Fallback: check price if layby_eligible not indexed yet
+                    if (array_key_exists('layby_eligible', $product)) {
+                        // Trust the indexed value as-is — it already accounts for price AND
+                        // is_layby_disabled. Do NOT re-derive from price when it's false, or an
+                        // admin-disabled high-price product would get silently re-enabled here.
+                        $isLaybyEligible = (bool) $product['layby_eligible'];
+                    } else {
+                        // Fallback: field not indexed yet on this (older) document — approximate
+                        // from price only, same as the legacy behaviour before layby_eligible existed.
                         $effectivePrice = !empty($product['sale_price']) ? (float)$product['sale_price'] : (float)($product['price'] ?? 0);
                         $isLaybyEligible = $effectivePrice >= 100;
                     }

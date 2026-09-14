@@ -31,8 +31,9 @@ class SitemapController extends Controller
             // Only fetch slug and updated_at (super lightweight)
             $products = DB::table('products')
                 ->select('slug', 'updated_at')
-                ->where('status', 1) // Only active products
-                ->whereNull('deleted_at')
+                ->where('status', 1) // Only active, approved products — matches
+                ->where('is_approved', 1) // ProductRepository::getProductBySlug()'s visibility
+                ->whereNull('deleted_at') // check, so sitemap entries don't 404.
                 ->orderBy('id')
                 ->offset(($page - 1) * $perPage)
                 ->limit($perPage)
@@ -42,6 +43,7 @@ class SitemapController extends Controller
             $total = Cache::remember('sitemap_total_products', 3600, function () {
                 return DB::table('products')
                     ->where('status', 1)
+                    ->where('is_approved', 1)
                     ->whereNull('deleted_at')
                     ->count();
             });
@@ -68,6 +70,7 @@ class SitemapController extends Controller
         $count = Cache::remember('sitemap_total_products', 3600, function () {
             return DB::table('products')
                 ->where('status', 1)
+                ->where('is_approved', 1)
                 ->whereNull('deleted_at')
                 ->count();
         });

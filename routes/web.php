@@ -172,6 +172,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::prefix('orders/stats')->name('orders.stats.')->group(function () {
             Route::get('/', [\App\Http\Controllers\Admin\AdminOrderStatsController::class, 'index'])->name('index');
             Route::get('/overview', [\App\Http\Controllers\Admin\AdminOrderStatsController::class, 'overview'])->name('overview');
+            Route::get('/monthly', [\App\Http\Controllers\Admin\AdminOrderStatsController::class, 'monthly'])->name('monthly');
             Route::get('/top-products', [\App\Http\Controllers\Admin\AdminOrderStatsController::class, 'topProducts'])->name('top-products');
             Route::get('/status-details', [\App\Http\Controllers\Admin\AdminOrderStatsController::class, 'statusDetails'])->name('status-details');
             Route::get('/product-performance', [\App\Http\Controllers\Admin\AdminOrderStatsController::class, 'productPerformance'])->name('product-performance');
@@ -254,6 +255,13 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::post('/settings', [\App\Http\Controllers\Admin\AdminOrderReminderController::class, 'updateSettings'])->name('settings.update');
             Route::post('/resend/{id}', [\App\Http\Controllers\Admin\AdminOrderReminderController::class, 'resend'])->name('resend');
             Route::get('/stats', [\App\Http\Controllers\Admin\AdminOrderReminderController::class, 'stats'])->name('stats');
+        });
+
+        // Cart Reminders
+        Route::prefix('cart-reminders')->name('cart-reminders.')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Admin\AdminCartController::class, 'index'])->name('index');
+            Route::get('/settings', [\App\Http\Controllers\Admin\AdminCartController::class, 'settings'])->name('settings');
+            Route::post('/settings', [\App\Http\Controllers\Admin\AdminCartController::class, 'updateSettings'])->name('settings.update');
         });
 
         // Processing Overdue
@@ -345,6 +353,17 @@ Route::prefix('admin')->name('admin.')->group(function () {
             // Bulk Disable by SKU
             Route::get('/bulk-disable', [\App\Http\Controllers\Admin\AdminProductController::class, 'bulkDisable'])->name('bulk-disable');
             Route::post('/bulk-disable', [\App\Http\Controllers\Admin\AdminProductController::class, 'bulkDisableProcess'])->name('bulk-disable.process');
+
+            // Bulk Disable Layby by SKU or by delivery text
+            Route::get('/bulk-disable-layby', [\App\Http\Controllers\Admin\AdminProductController::class, 'bulkDisableLayby'])->name('bulk-disable-layby');
+            Route::post('/bulk-disable-layby', [\App\Http\Controllers\Admin\AdminProductController::class, 'bulkDisableLaybyProcess'])->name('bulk-disable-layby.process');
+            Route::post('/bulk-disable-layby/by-delivery-text', [\App\Http\Controllers\Admin\AdminProductController::class, 'bulkDisableLaybyByDeliveryTextProcess'])->name('bulk-disable-layby.by-delivery-text');
+            Route::post('/bulk-disable-layby/enable-by-sku', [\App\Http\Controllers\Admin\AdminProductController::class, 'bulkEnableLaybyProcess'])->name('bulk-disable-layby.enable-by-sku');
+
+            // Bulk Cash on Delivery by SKU
+            Route::get('/bulk-cod', [\App\Http\Controllers\Admin\AdminProductController::class, 'bulkCod'])->name('bulk-cod');
+            Route::post('/bulk-cod', [\App\Http\Controllers\Admin\AdminProductController::class, 'bulkCodProcess'])->name('bulk-cod.process');
+            Route::post('/bulk-cod/disable-by-sku', [\App\Http\Controllers\Admin\AdminProductController::class, 'bulkDisableCodProcess'])->name('bulk-cod.disable-by-sku');
 
             // Product-specific routes - these use {id} so must come AFTER more specific routes
             Route::get('/{id}/edit', [\App\Http\Controllers\Admin\AdminProductController::class, 'edit'])->name('edit');
@@ -533,6 +552,21 @@ Route::prefix('media')->name('media.')->group(function () {
     Route::put('/{id}', [\App\Http\Controllers\Admin\AdminMediaController::class, 'update'])->name('update');
     Route::delete('/{id}', [\App\Http\Controllers\Admin\AdminMediaController::class, 'destroy'])->name('destroy');
     Route::post('/bulk-delete', [\App\Http\Controllers\Admin\AdminMediaController::class, 'bulkDelete'])->name('bulk-delete');
+});
+
+Route::prefix('backups')->name('backups.')->group(function () {
+    Route::get('/', [\App\Http\Controllers\Admin\AdminBackupController::class, 'index'])->name('index');
+    Route::post('/run', [\App\Http\Controllers\Admin\AdminBackupController::class, 'run'])->name('run');
+    Route::post('/{target}/run', [\App\Http\Controllers\Admin\AdminBackupController::class, 'run'])->name('run.target');
+
+    // Local dumps (on this server, awaiting review)
+    Route::get('/{target}/{filename}/download-local', [\App\Http\Controllers\Admin\AdminBackupController::class, 'downloadLocal'])->name('download-local');
+    Route::delete('/{target}/{filename}/local', [\App\Http\Controllers\Admin\AdminBackupController::class, 'destroyLocal'])->name('destroy-local');
+    Route::post('/{target}/{filename}/upload', [\App\Http\Controllers\Admin\AdminBackupController::class, 'upload'])->name('upload');
+
+    // Off-server copies (R2)
+    Route::get('/{target}/{filename}/download', [\App\Http\Controllers\Admin\AdminBackupController::class, 'download'])->name('download');
+    Route::delete('/{target}/{filename}', [\App\Http\Controllers\Admin\AdminBackupController::class, 'destroy'])->name('destroy');
 });
 
         // User Management

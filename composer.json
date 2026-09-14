@@ -125,6 +125,7 @@
         "laravel/scout": "^10.0 || ^11.0 || ^12.0",
         "laravel/slack-notification-channel": "^3.6",
         "laravel/tinker": "^3.0",
+        "league/flysystem-aws-s3-v3": "^3.35",
         "maatwebsite/excel": "^3.1",
         "matchish/laravel-scout-elasticsearch": "dev-l13-patched",
         "mll-lab/laravel-graphiql": "^3.0 || ^4.0",

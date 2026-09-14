@@ -221,6 +221,9 @@
                                                     <span class="badge bg-warning text-dark">Featured</span>
                                                 @endif
                                                 <br><small class="text-muted"><code>{{ $product->sku ?: 'N/A' }}</code></small>
+                                                <br><span class="badge bg-{{ $product->is_layby_disabled ? 'secondary' : 'info' }} small">
+                                                    <i class="bi bi-wallet2"></i> Layby {{ $product->is_layby_disabled ? 'Off' : 'Active' }}
+                                                </span>
                                             </div>
                                         </div>
                                     </td>

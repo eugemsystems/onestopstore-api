@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Models\Attachment;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
@@ -18,9 +19,11 @@ class AdminMediaController extends BaseAdminController
         $this->checkPermission('index');
 
         $query = Attachment::query();
+        $hasFilters = false;
 
         // Search
         if ($request->has('search') && $request->search) {
+            $hasFilters = true;
             $search = $request->search;
             $query->where(function($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
@@ -31,11 +34,13 @@ class AdminMediaController extends BaseAdminController
 
         // Filter by folder (model_type)
         if ($request->has('folder') && $request->folder) {
+            $hasFilters = true;
             $query->where('model_type', $request->folder);
         }
 
         // Filter by mime type
         if ($request->has('type') && $request->type) {
+            $hasFilters = true;
             $mimeTypes = [
                 'image' => ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'],
                 'video' => ['video/mp4', 'video/mpeg', 'video/quicktime'],
@@ -51,7 +56,29 @@ class AdminMediaController extends BaseAdminController
         // Order
         $query->orderBy($request->get('sort', 'created_at'), $request->get('order', 'desc'));
 
-        $media = $query->paginate($request->get('per_page', 24));
+        $perPage = (int) $request->get('per_page', 24);
+        $page = (int) $request->get('page', 1);
+
+        if ($hasFilters) {
+            $media = $query->paginate($perPage);
+        } else {
+            // With ~64M+ unfiltered rows, an exact COUNT(*) is a full table scan on
+            // every page load (Postgres can't do an index-only count due to MVCC
+            // visibility checks). Use the planner's row estimate for the "total"
+            // shown in the UI instead — it's near-instant and close enough for display.
+            $items = (clone $query)->forPage($page, $perPage)->get();
+            $estimate = (int) (DB::selectOne(
+                "SELECT reltuples::bigint AS estimate FROM pg_class WHERE relname = 'attachments'"
+            )->estimate ?? 0);
+
+            $media = new LengthAwarePaginator(
+                $items,
+                $estimate,
+                $perPage,
+                $page,
+                ['path' => $request->url(), 'query' => $request->query()]
+            );
+        }
 
         // Get folder statistics
         $folders = DB::table('attachments')

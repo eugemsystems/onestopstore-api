@@ -101,6 +101,7 @@ class Order extends Model
         'currency' => 'string',
         'currency_symbol' => 'string',
         'exchange_rate' => 'float',
+        'shipping_refunded_at' => 'datetime',
     ];
 
     protected $appends = ['summary'];

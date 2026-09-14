@@ -1097,6 +1097,17 @@
                                                 <br><small class="text-muted">Product only visible when currency is Rand</small>
                                             </div>
                                         </div>
+                                        <div class="col-md-6 mb-2">
+                                            <div class="form-check">
+                                                <input type="hidden" name="is_layby_disabled" value="0">
+                                                <input type="checkbox" class="form-check-input" id="is_layby_disabled"
+                                                       name="is_layby_disabled" value="1" {{ old('is_layby_disabled', $product->is_layby_disabled) ? 'checked' : '' }}>
+                                                <label class="form-check-label" for="is_layby_disabled">
+                                                    <i class="bi bi-wallet2 text-warning"></i> Disable Layby
+                                                </label>
+                                                <br><small class="text-muted">Check to hide the layby option for this product on the storefront, regardless of price</small>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 

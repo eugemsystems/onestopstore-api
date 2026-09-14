@@ -3,6 +3,8 @@
 @section('title', 'Elasticsearch Reindex - Admin Panel')
 
 @push('styles')
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
 <style>
     .reindex-card {
         background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
@@ -293,6 +295,41 @@
                         </div>
                     </div>
 
+                    <!-- Product SKUs -->
+                    <div class="form-group">
+                        <label class="form-label" for="reindexSkus">
+                            <i class="bi bi-upc-scan"></i> Product SKUs <span class="text-muted fw-normal">(one per line)</span>
+                        </label>
+                        <textarea class="form-control font-monospace" id="reindexSkus" name="skus" rows="5"
+                                  placeholder="98578066ZW&#10;98578066ZW2&#10;98578066ZW3"></textarea>
+                        <div class="help-text">Reindex only these specific products by SKU — takes priority over everything below if filled</div>
+                    </div>
+
+                    <!-- Delivery Text -->
+                    <div class="form-group">
+                        <label class="form-label" for="reindexDeliveryText">
+                            <i class="bi bi-truck"></i> Delivery Text
+                        </label>
+                        <select class="form-control" id="reindexDeliveryText" name="delivery_text">
+                            <option value="">— None —</option>
+                            @foreach($deliveryTexts as $text)
+                                <option value="{{ $text }}">{{ $text }}</option>
+                            @endforeach
+                        </select>
+                        <div class="help-text">Reindex only products whose Estimated Delivery Text matches this exactly</div>
+                    </div>
+
+                    <!-- Category -->
+                    <div class="form-group">
+                        <label class="form-label" for="reindexCategoryId">
+                            <i class="bi bi-diagram-3"></i> Category
+                        </label>
+                        <select class="form-control" id="reindexCategoryId" name="category_id" style="width:100%;">
+                            <option value="">— None —</option>
+                        </select>
+                        <div class="help-text">Reindex only products in this category</div>
+                    </div>
+
                     <!-- Chunk Size -->
                     <div class="form-group">
                         <label class="form-label" for="chunk">
@@ -454,6 +491,9 @@
 @endsection
 
 @push('scripts')
+<!-- Load jQuery and Select2 FIRST before any code that uses them -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('reindexForm');
@@ -468,6 +508,30 @@ document.addEventListener('DOMContentLoaded', function() {
 
     let pollTimer = null;
     let isRunning = false;
+
+    // Category picker — AJAX search over the same endpoint the product edit form uses
+    if (typeof jQuery !== 'undefined' && typeof jQuery.fn.select2 !== 'undefined') {
+        jQuery('#reindexCategoryId').select2({
+            theme: 'bootstrap-5',
+            placeholder: 'Search for a category...',
+            allowClear: true,
+            width: '100%',
+            ajax: {
+                url: '{{ route("admin.products.categories.search") }}',
+                dataType: 'json',
+                delay: 250,
+                data: function (params) {
+                    return { q: params.term, page: params.page || 1 };
+                },
+                processResults: function (data, params) {
+                    params.page = params.page || 1;
+                    return { results: data.results, pagination: { more: data.pagination.more } };
+                },
+                cache: true
+            },
+            minimumInputLength: 0
+        });
+    }
 
     // Warn when recreate index is checked
     recreateIndexCheckbox.addEventListener('change', async function() {
@@ -499,6 +563,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const formData = new FormData(form);
         const params = new URLSearchParams();
 
+        if (formData.get('skus') && formData.get('skus').trim()) params.append('skus', formData.get('skus'));
+        if (formData.get('delivery_text')) params.append('delivery_text', formData.get('delivery_text'));
+        if (formData.get('category_id')) params.append('category_id', formData.get('category_id'));
         if (formData.get('from_id')) params.append('from_id', formData.get('from_id'));
         if (formData.get('to_id')) params.append('to_id', formData.get('to_id'));
         if (formData.get('chunk')) params.append('chunk', formData.get('chunk'));
@@ -523,7 +590,7 @@ document.addEventListener('DOMContentLoaded', function() {
         clearOutputBtn.style.display = 'block';
 
         startBtn.disabled = true;
-        form.querySelectorAll('input').forEach(input => input.disabled = true);
+        form.querySelectorAll('input, textarea, select').forEach(input => input.disabled = true);
 
         updateProgress(0, 0, 0);
         addOutput('Launching reindex in background...', 'info');
@@ -532,10 +599,19 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(r => r.json())
             .then(data => {
                 if (data.job_id) {
+                    if (data.resolved_count) {
+                        addOutput(`Resolved ${data.resolved_count} SKU(s) to product ID(s).`, 'info');
+                    }
+                    if (data.not_found_skus && data.not_found_skus.length) {
+                        addOutput(`SKU(s) not found, skipped: ${data.not_found_skus.join(', ')}`, 'error');
+                    }
                     addOutput('Reindex started. Tracking progress...', 'info');
                     pollReindex(data.job_id, 0);
                 } else {
                     addOutput('Failed to start: ' + (data.error || 'Unknown error'), 'error');
+                    if (data.not_found_skus && data.not_found_skus.length) {
+                        addOutput(`SKU(s) not found: ${data.not_found_skus.join(', ')}`, 'error');
+                    }
                     updateStatus('failed', 'Error');
                     finishReindex();
                 }
@@ -639,7 +715,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         startBtn.disabled = false;
-        form.querySelectorAll('input').forEach(input => input.disabled = false);
+        form.querySelectorAll('input, textarea, select').forEach(input => input.disabled = false);
     }
 
     function escapeHtml(text) {

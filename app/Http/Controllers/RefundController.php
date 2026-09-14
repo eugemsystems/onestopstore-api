@@ -189,12 +189,17 @@ class RefundController extends Controller
     public function filter($refunds)
     {
         $roleName = Helpers::getCurrentRoleName();
-        if ($roleName == RoleEnum::VENDOR) {
-            $refunds = $refunds->where('store_id',Helpers::getCurrentVendorStoreId());
-        }
 
-        if ($roleName == RoleEnum::CONSUMER) {
-            $refunds = $refunds->where('consumer_id',Helpers::getCurrentUserId());
+        // Role-based filtering. Fails CLOSED: any role that isn't recognized
+        // (e.g. a token whose role_type never got backfilled) falls through to
+        // "my own refunds only" instead of an unfiltered query — see
+        // OrderController::filter() for the incident this pattern caused.
+        if ($roleName == RoleEnum::VENDOR) {
+            $refunds = $refunds->where('store_id', Helpers::getCurrentVendorStoreId());
+        } elseif ($roleName == RoleEnum::ADMIN) {
+            // Admins intentionally see everything — no filter.
+        } else {
+            $refunds = $refunds->where('consumer_id', Helpers::getCurrentUserId());
         }
 
         return $refunds;

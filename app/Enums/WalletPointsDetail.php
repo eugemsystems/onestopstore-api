@@ -18,4 +18,5 @@ enum WalletPointsDetail:string {
   const REFUND_REQUESTED = 'Refund requested - amount deducted from balance.';
   const REFUND_REJECTED_CREDIT = 'Refund rejected - amount credited back to balance.';
   const OUT_OF_STOCK_CREDIT = 'Store credit for out of stock item';
+  const OUT_OF_STOCK_SHIPPING_CREDIT = 'Shipping fee credited - entire order out of stock';
 }

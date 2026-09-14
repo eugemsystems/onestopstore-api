@@ -132,7 +132,8 @@ class Variation extends Model implements HasMedia
 
         $eligible = $priceInUSD >= 100
             && !$this->sa_only
-            && !($this->relationLoaded('product') ? (bool)$this->product?->sa_only : false);
+            && !($this->relationLoaded('product') ? (bool)$this->product?->sa_only : false)
+            && !($this->relationLoaded('product') ? (bool)($this->product?->is_layby_disabled ?? false) : false);
 
         // Get settings based on product type
         $depositPercentage = $isSaleProduct

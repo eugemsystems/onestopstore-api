@@ -115,6 +115,7 @@ class ExpireSalePrices extends Command
                     'p.encourage_order', 'p.encourage_view',
                     'p.product_thumbnail_id', 'p.product_meta_image_id', 'p.size_chart_image_id',
                     'p.store_id', 'p.created_by_id', 'p.tax_id', 'p.brand_id', 'p.created_at',
+                    'p.is_layby_disabled',
                     'a.image_url as thumb_url',
                 ])
                 ->get();
@@ -141,7 +142,7 @@ class ExpireSalePrices extends Command
                         'is_sale_enable' => 0,
                         'sale_expired_at' => $row->sale_expired_at
                             ? str_replace(' ', 'T', $row->sale_expired_at) : null,
-                        'layby_eligible' => (float)($row->price ?? 0) >= 100,
+                        'layby_eligible' => (float)($row->price ?? 0) >= 100 && !$row->is_layby_disabled,
                     ],
                 ];
             }

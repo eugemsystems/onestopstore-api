@@ -990,7 +990,7 @@
                             $corporateCount = \App\Models\Order::whereNull('parent_id')->whereNotIn('order_status_id',$excludedStatusIds)->where('order_status_id',\App\Models\OrderStatus::where('slug','processing')->value('id'))->whereHas('consumer',fn($q)=>$q->whereNotNull('company_name')->where('company_name','!=',''))->count();
                             $lateOrderCount = \Cache::remember('admin_late_orders_count',300,function(){return \DB::table('orders as o')->join('order_status as os','o.order_status_id','=','os.id')->whereIn('o.payment_status',['Success','COMPLETED','COMPLETE','CASH_ON_DELIVERY','Credit'])->whereNotIn('os.slug',['cancelled','delivered','collected','ready-for-collection','ready_for_collection','ready-for-delivery','ready_for_delivery'])->whereExists(fn($sub)=>$sub->from('order_products as op')->whereColumn('op.order_id','o.id')->whereNotNull('op.eta')->whereRaw("op.eta::date < CURRENT_DATE")->whereNotIn('op.item_status',['cancelled','out of stock','out_of_stock','delivered','collected','ready for collection'])->whereNull('op.deleted_at'))->count();});
                         @endphp
-                        <div class="rail-item has-flyout {{ request()->routeIs('admin.orders.*','admin.order-reminders.*','admin.late-orders.*') ? 'rail-active' : '' }}">
+                        <div class="rail-item has-flyout {{ request()->routeIs('admin.orders.*','admin.order-reminders.*','admin.late-orders.*','admin.cart-reminders.*') ? 'rail-active' : '' }}">
                             <div class="rail-link">
                                 <i class="bi bi-bag"></i>
                                 <span class="rail-label">Orders</span>
@@ -1008,6 +1008,7 @@
                                 @can('order.edit')<a class="flyout-link {{ request()->routeIs('admin.orders.qr-scanner') ? 'flyout-active' : '' }}" href="{{ route('admin.orders.qr-scanner') }}"><i class="bi bi-upc-scan"></i> QR Scanner</a>@endcan
                                 @can('order-stats.view')<a class="flyout-link {{ request()->routeIs('admin.orders.stats.*') ? 'flyout-active' : '' }}" href="{{ route('admin.orders.stats.index') }}"><i class="bi bi-graph-up-arrow"></i> Statistics</a>@endcan
                                 @can('order-reminder.index')<a class="flyout-link {{ request()->routeIs('admin.order-reminders.*') ? 'flyout-active' : '' }}" href="{{ route('admin.order-reminders.index') }}"><i class="bi bi-envelope-exclamation"></i> Reminders</a>@endcan
+                                @can('cart-reminder.index')<a class="flyout-link {{ request()->routeIs('admin.cart-reminders.*') ? 'flyout-active' : '' }}" href="{{ route('admin.cart-reminders.index') }}"><i class="bi bi-cart-x"></i> Cart Reminders</a>@endcan
                                 @can('order-item.search')<a class="flyout-link {{ request()->routeIs('admin.orders.item-search.*') ? 'flyout-active' : '' }}" href="{{ route('admin.orders.item-search.index') }}"><i class="bi bi-search"></i> Search Items</a>@endcan
                                 @can('processing-link-builder.index')<a class="flyout-link {{ request()->routeIs('admin.orders.processing-link-builder') ? 'flyout-active' : '' }}" href="{{ route('admin.orders.processing-link-builder') }}"><i class="bi bi-link-45deg"></i> Takealot Link Builder</a>@endcan
                                 <a class="flyout-link {{ request()->routeIs('admin.late-orders.*') ? 'flyout-active' : '' }}" href="{{ route('admin.late-orders.index') }}"><i class="bi bi-exclamation-triangle-fill text-danger"></i> Late Orders @if($lateOrderCount > 0)<span class="notification-badge">{{ $lateOrderCount }}</span>@endif</a>
@@ -1063,6 +1064,8 @@
                                 <a class="flyout-link {{ request()->routeIs('admin.products.search-export') ? 'flyout-active' : '' }}" href="{{ route('admin.products.search-export') }}"><i class="bi bi-file-earmark-excel" style="color:#15803d"></i> Search & Export</a>
                                 @endcan
                                 @can('product.bulk-disable')<a class="flyout-link {{ request()->routeIs('admin.products.bulk-disable*') ? 'flyout-active' : '' }}" href="{{ route('admin.products.bulk-disable') }}"><i class="bi bi-slash-circle" style="color:#dc2626"></i> Bulk Disable</a>@endcan
+                                @can('product.bulk-disable-layby')<a class="flyout-link {{ request()->routeIs('admin.products.bulk-disable-layby*') ? 'flyout-active' : '' }}" href="{{ route('admin.products.bulk-disable-layby') }}"><i class="bi bi-wallet2" style="color:#dc2626"></i> Bulk Disable Layby</a>@endcan
+                                @can('product.bulk-cod')<a class="flyout-link {{ request()->routeIs('admin.products.bulk-cod*') ? 'flyout-active' : '' }}" href="{{ route('admin.products.bulk-cod') }}"><i class="bi bi-cash-coin" style="color:#15803d"></i> Bulk Cash on Delivery</a>@endcan
                                 @can('product.index')<a class="flyout-link {{ request()->routeIs('admin.products.vendor-products') ? 'flyout-active' : '' }}" href="{{ route('admin.products.vendor-products') }}"><i class="bi bi-shop"></i> Vendor Products @if($pendingVendorProductsCount > 0)<span class="notification-badge">{{ $pendingVendorProductsCount }}</span>@endif</a>@endcan
                                 @can('product.create')<a class="flyout-link {{ request()->routeIs('admin.products.create') ? 'flyout-active' : '' }}" href="{{ route('admin.products.create') }}"><i class="bi bi-plus-square-fill"></i> Add Product</a>@endcan
                                 @can('product-feed.index')<a class="flyout-link {{ request()->routeIs('admin.product-feed.index') ? 'flyout-active' : '' }}" href="{{ route('admin.product-feed.index') }}"><i class="bi bi-rss-fill"></i> Export Feed</a>@endcan
@@ -1215,7 +1218,7 @@
                                     ->count();
                             } catch(\Exception $e) { $overdueCount = 0; }
                         @endphp
-                        <div class="rail-item has-flyout {{ request()->routeIs('admin.order-products-eta.*','admin.processing-overdue.*','admin.activity-log.*') ? 'rail-active' : '' }}">
+                        <div class="rail-item has-flyout {{ request()->routeIs('admin.order-products-eta.*','admin.processing-overdue.*','admin.activity-log.*','admin.backups.*') ? 'rail-active' : '' }}">
                             <div class="rail-link">
                                 <i class="bi bi-clock-history"></i>
                                 <span class="rail-label">Ops</span>
@@ -1226,6 +1229,7 @@
                                 @can('eta-overdue.index')<a class="flyout-link {{ request()->routeIs('admin.order-products-eta.*') ? 'flyout-active' : '' }}" href="{{ route('admin.order-products-eta.index') }}"><i class="bi bi-clock-history"></i> Overdue Items (ETA) @if($overdueCount > 0)<span class="notification-badge">{{ $overdueCount }}</span>@endif</a>@endcan
                                 @can('processing-overdue.index')<a class="flyout-link {{ request()->routeIs('admin.processing-overdue.*') ? 'flyout-active' : '' }}" href="{{ route('admin.processing-overdue.index') }}"><i class="bi bi-clock-history"></i> Processing Overdue @if($processingOverdueItemsCount > 0)<span class="notification-badge">{{ $processingOverdueItemsCount }}</span>@endif</a>@endcan
                                 @can('activity-log.view')<a class="flyout-link {{ request()->routeIs('admin.activity-log.*') ? 'flyout-active' : '' }}" href="{{ route('admin.activity-log.index') }}"><i class="bi bi-shield-lock-fill" style="color:#c084fc"></i> Audit Trail</a>@endcan
+                                @can('backups.view')<a class="flyout-link {{ request()->routeIs('admin.backups.*') ? 'flyout-active' : '' }}" href="{{ route('admin.backups.index') }}"><i class="bi bi-cloud-arrow-down-fill"></i> Database Backups</a>@endcan
                             </div>
                         </div>
 

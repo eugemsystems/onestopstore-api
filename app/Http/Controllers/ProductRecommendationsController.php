@@ -229,6 +229,7 @@ class ProductRecommendationsController extends Controller
                 'products.expedited_shipping_days',
                 'products.standard_shipping_price',
                 'products.expedited_shipping_price',
+                'products.is_layby_disabled',
                 'products.created_at',
                 // Thumbnail join
                 'thumb.id as thumb_id',
@@ -411,7 +412,7 @@ class ProductRecommendationsController extends Controller
                 'layby_eligibility'  => (function () use ($p) {
                     $isSale = $p->sale_price && (float)$p->sale_price > 0;
                     $price = $isSale ? (float)$p->sale_price : (float)($p->price ?? 0);
-                    $eligible = $price >= 100;
+                    $eligible = $price >= 100 && !$p->is_layby_disabled;
                     $depositPct = $isSale
                         ? (int)getLaybySetting('sale_products_deposit_percentage', 30)
                         : (int)getLaybySetting('regular_products_deposit_percentage', 30);

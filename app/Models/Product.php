@@ -74,6 +74,7 @@ class Product extends Model implements HasMedia
         'status',
         'is_approved',
         'is_permanently_disabled',
+        'is_layby_disabled',
         'estimated_delivery_text',
         'return_policy_text',
         'warranty', // Warranty text from Fast Import
@@ -93,6 +94,7 @@ class Product extends Model implements HasMedia
         'zambia_only',
         'zimbabwe_only',
         'sa_only',
+        'is_cod',
     ];
 
     protected $with = [
@@ -157,6 +159,7 @@ class Product extends Model implements HasMedia
         'status' => 'integer',
         'is_trending' => 'integer',
         'is_approved' => 'integer',
+        'is_layby_disabled' => 'boolean',
         'reviews_count' => 'integer',
         'rating_count' => 'float',
         'has_expedited_shipping' => 'integer',
@@ -280,7 +283,7 @@ class Product extends Model implements HasMedia
             'return_policy_text' => $this->return_policy_text,
             'layby_eligible' => (function() {
                 $price = $this->sale_price ? (float)$this->sale_price : (float)($this->price ?? 0);
-                return $price >= 100;
+                return $price >= 100 && !$this->is_layby_disabled;
             })(),
 
             // Product page features
@@ -825,7 +828,7 @@ class Product extends Model implements HasMedia
         $exchangeRate = session('exchange_rate', 1);
         $priceInUSD = $price / $exchangeRate;
 
-        $eligible = $priceInUSD >= 100 && !$this->sa_only;
+        $eligible = $priceInUSD >= 100 && !$this->sa_only && !$this->is_layby_disabled;
 
         // Get settings based on product type
         $depositPercentage = $isSaleProduct

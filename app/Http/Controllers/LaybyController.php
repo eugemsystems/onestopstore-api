@@ -187,6 +187,10 @@ class LaybyController extends Controller
             return response()->json(['message' => 'Layby is only available for products above $300'], 422);
         }
 
+        if ($product->is_layby_disabled) {
+            return response()->json(['message' => 'Layby is not available for this product'], 422);
+        }
+
         // Get layby settings based on product type
         $depositPercentage = $isSaleProduct
             ? (float)getLaybySetting('sale_products_deposit_percentage', 30)
@@ -559,7 +563,7 @@ class LaybyController extends Controller
         $exchangeRate = session('exchange_rate', 1);
         $priceInUSD = $price / $exchangeRate;
 
-        $eligible = $priceInUSD >= 100 && !$product->sa_only && !($variation?->sa_only);
+        $eligible = $priceInUSD >= 100 && !$product->sa_only && !($variation?->sa_only) && !$product->is_layby_disabled;
 
         // Get settings based on product type
         $depositPercentage = $isSaleProduct

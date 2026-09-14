@@ -65,14 +65,14 @@
                 <div class="card-body">
                     <div class="row">
                         <div class="col-md-6">
-                            <p><strong>Name:</strong> {{ $application->user->name }}</p>
-                            <p><strong>Email:</strong> <a href="mailto:{{ $application->user->email }}">{{ $application->user->email }}</a></p>
-                            <p><strong>Phone:</strong> {{ $application->user->phone ?? 'N/A' }}</p>
+                            <p><strong>Name:</strong> {{ $application->user?->name ?? 'Deleted user' }}</p>
+                            <p><strong>Email:</strong> <a href="mailto:{{ $application->user?->email }}">{{ $application->user?->email }}</a></p>
+                            <p><strong>Phone:</strong> {{ $application->user?->phone ?? 'N/A' }}</p>
                         </div>
                         <div class="col-md-6">
-                            <p><strong>Customer Since:</strong> {{ $application->user->created_at->format('M d, Y') }}</p>
+                            <p><strong>Customer Since:</strong> {{ $application->user?->created_at?->format('M d, Y') ?? 'N/A' }}</p>
                             <p><strong>Total Orders:</strong> {{ $userOrderCount }}</p>
-                            <p><strong>User ID:</strong> #{{ $application->user->id }}</p>
+                            <p><strong>User ID:</strong> #{{ $application->user?->id }}</p>
                         </div>
                     </div>
                 </div>
@@ -571,7 +571,7 @@
                     <p><strong>Total Payments:</strong> {{ $application->payments->where('payment_status', 'completed')->count() }}</p>
                     @if($application->approved_at)
                     <p><strong>Approved on:</strong> {{ $application->approved_at->format('M d, Y') }}</p>
-                    <p><strong>Approved by:</strong> {{ $application->approvedBy->name ?? 'System' }}</p>
+                    <p><strong>Approved by:</strong> {{ $application->approvedBy?->name ?? 'System' }}</p>
                     @endif
                 </div>
             </div>

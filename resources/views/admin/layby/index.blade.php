@@ -250,7 +250,7 @@
 
                         <div class="mb-3">
                             <p><strong>Application:</strong> {{ $application->application_number }}</p>
-                            <p><strong>Customer:</strong> {{ $application->user->name }}</p>
+                            <p><strong>Customer:</strong> {{ $application?->user?->name }}</p>
                             <p><strong>Product:</strong> {{ $application->product_name }}</p>
                         </div>
 

@@ -65,6 +65,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Force HTTPS only in 'local' and 'dev' environments
+        if (app()->environment(['local', 'dev'])) {
+            URL::forceScheme('https');
+        }
+        
         // Use Bootstrap 5 for pagination views
         \Illuminate\Pagination\Paginator::useBootstrapFive();
 
@@ -175,11 +180,6 @@ class AppServiceProvider extends ServiceProvider
             });
         }
         */
-
-        // Force HTTPS only in development environments
-        if ($this->app->environment('local')) {
-            URL::forceScheme('https');
-        }
     }
 
     /**

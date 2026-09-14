@@ -119,6 +119,11 @@ class SyncAdminPermissions extends Command
                 ['name' => 'order-reminder.resend', 'description' => 'Resend reminders'],
             ],
 
+            'Cart Reminders' => [
+                ['name' => 'cart-reminder.index', 'description' => 'View abandoned carts and reminders sent'],
+                ['name' => 'cart-reminder.settings', 'description' => 'Manage cart reminder settings'],
+            ],
+
             'Order Item Search' => [
                 ['name' => 'order-item.search', 'description' => 'Search order items'],
             ],
@@ -136,6 +141,8 @@ class SyncAdminPermissions extends Command
                 ['name' => 'product.destroy', 'description' => 'Delete product'],
                 ['name' => 'product.toggle-status', 'description' => 'Toggle product status'],
                 ['name' => 'product.bulk-disable', 'description' => 'Bulk disable products by SKU'],
+                ['name' => 'product.bulk-disable-layby', 'description' => 'Bulk disable layby on products by SKU or delivery text'],
+                ['name' => 'product.bulk-cod', 'description' => 'Bulk enable/disable Cash on Delivery on products by SKU'],
             ],
 
             'Product Variations' => [
@@ -197,6 +204,13 @@ class SyncAdminPermissions extends Command
                 ['name' => 'home-pages.create', 'description' => 'Create home page'],
                 ['name' => 'home-pages.edit', 'description' => 'Edit home page'],
                 ['name' => 'home-pages.delete', 'description' => 'Delete home page'],
+            ],
+
+            'Backups' => [
+                ['name' => 'backups.view', 'description' => 'View database backups'],
+                ['name' => 'backups.run', 'description' => 'Trigger a manual database backup'],
+                ['name' => 'backups.download', 'description' => 'Download a database backup'],
+                ['name' => 'backups.delete', 'description' => 'Delete a database backup'],
             ],
 
             'Users & Roles' => [

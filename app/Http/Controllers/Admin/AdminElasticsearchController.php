@@ -15,7 +15,15 @@ class AdminElasticsearchController extends Controller
      */
     public function reindex()
     {
-        return view('admin.elasticsearch.reindex');
+        $deliveryTexts = \Illuminate\Support\Facades\DB::table('products')
+            ->whereNotNull('estimated_delivery_text')
+            ->where('estimated_delivery_text', '!=', '')
+            ->whereNull('deleted_at')
+            ->distinct()
+            ->orderBy('estimated_delivery_text')
+            ->pluck('estimated_delivery_text');
+
+        return view('admin.elasticsearch.reindex', compact('deliveryTexts'));
     }
 
     /**
@@ -213,6 +221,9 @@ class AdminElasticsearchController extends Controller
         $request->validate([
             'from_id'         => 'nullable|integer|min:1',
             'to_id'           => 'nullable|integer|min:1',
+            'skus'            => 'nullable|string',
+            'delivery_text'   => 'nullable|string',
+            'category_id'     => 'nullable|integer|min:1',
             'chunk'           => 'nullable|integer|min:1|max:10000',
             'dry_run'         => 'nullable|boolean',
             'disable_refresh' => 'nullable|boolean',
@@ -221,9 +232,71 @@ class AdminElasticsearchController extends Controller
             'all'             => 'nullable|boolean',
         ]);
 
+        // Resolve pasted SKUs to product IDs up front — the list is human-pasted so it's
+        // always small, and this lets us report which SKUs weren't found. Delivery text and
+        // category are pushed straight through as filter options instead: those can match
+        // hundreds of thousands of products (a single delivery-text value matched 400k+ in
+        // this catalog), which is far too much to safely cram into one shell argument via
+        // --ids — the command applies them as a normal WHERE/subquery instead.
+        // Priority when more than one is filled: SKUs > delivery text > category > ID range.
+        $resolvedIds = [];
+        $notFoundSkus = [];
+
+        if ($request->filled('skus')) {
+            $rawLines = preg_split('/\r\n|\r|\n/', trim($request->input('skus')));
+            $skus = array_values(array_filter(
+                array_map(fn ($line) => trim(explode(',', trim($line), 2)[0]), $rawLines)
+            ));
+
+            if (empty($skus)) {
+                return response()->json(['error' => 'No SKUs provided.'], 422);
+            }
+
+            $found = \Illuminate\Support\Facades\DB::table('products')
+                ->whereIn('sku', $skus)
+                ->whereNull('deleted_at')
+                ->pluck('sku', 'id');
+
+            $resolvedIds  = $found->keys()->all();
+            $notFoundSkus = array_values(array_diff($skus, $found->values()->all()));
+
+            if (empty($resolvedIds)) {
+                return response()->json([
+                    'error' => 'None of the provided SKUs matched a product.',
+                    'not_found_skus' => $notFoundSkus,
+                ], 422);
+            }
+        } elseif ($request->filled('delivery_text')) {
+            $matchCount = \Illuminate\Support\Facades\DB::table('products')
+                ->whereNull('deleted_at')
+                ->whereRaw('LOWER(estimated_delivery_text) = ?', [mb_strtolower($request->input('delivery_text'))])
+                ->count();
+
+            if ($matchCount === 0) {
+                return response()->json(['error' => 'No products found with that delivery text.'], 422);
+            }
+        } elseif ($request->filled('category_id')) {
+            $matchCount = \Illuminate\Support\Facades\DB::table('product_categories')
+                ->where('category_id', $request->input('category_id'))
+                ->whereNull('deleted_at')
+                ->count();
+
+            if ($matchCount === 0) {
+                return response()->json(['error' => 'No products found in that category.'], 422);
+            }
+        }
+
         $arguments = [];
-        if ($request->filled('from_id'))        $arguments['--from-id']        = $request->input('from_id');
-        if ($request->filled('to_id'))          $arguments['--to-id']          = $request->input('to_id');
+        if (!empty($resolvedIds)) {
+            $arguments['--ids'] = implode(',', $resolvedIds);
+        } elseif ($request->filled('delivery_text')) {
+            $arguments['--delivery-text'] = $request->input('delivery_text');
+        } elseif ($request->filled('category_id')) {
+            $arguments['--category-id'] = $request->input('category_id');
+        } else {
+            if ($request->filled('from_id')) $arguments['--from-id'] = $request->input('from_id');
+            if ($request->filled('to_id'))   $arguments['--to-id']   = $request->input('to_id');
+        }
         if ($request->filled('chunk'))          $arguments['--chunk']          = $request->input('chunk');
         if ($request->boolean('dry_run'))       $arguments['--dry-run']        = true;
         if ($request->boolean('disable_refresh')) $arguments['--disable-refresh'] = true;
@@ -265,7 +338,11 @@ class AdminElasticsearchController extends Controller
 
         \Illuminate\Support\Facades\Cache::put("es_reindex:{$jobId}:logfile", $logFile, now()->addHours(4));
 
-        return response()->json(['job_id' => $jobId]);
+        return response()->json([
+            'job_id' => $jobId,
+            'resolved_count' => count($resolvedIds),
+            'not_found_skus' => $notFoundSkus,
+        ]);
     }
 
     /**

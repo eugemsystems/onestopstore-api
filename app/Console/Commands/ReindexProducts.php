@@ -14,6 +14,9 @@ class ReindexProducts extends Command
                             {--chunk=1000}
                             {--from-id=}
                             {--to-id=}
+                            {--ids= : Comma-separated list of specific product IDs to reindex, e.g. 12,45,90}
+                            {--delivery-text= : Reindex only products whose estimated_delivery_text matches exactly (case-insensitive)}
+                            {--category-id= : Reindex only products in this category ID}
                             {--disable-refresh}
                             {--dry-run}
                             {--recreate-index : Delete and recreate the index with new mapping}
@@ -36,6 +39,22 @@ class ReindexProducts extends Command
         $recreateIndex = (bool) $this->option('recreate-index');
         $testMode = (bool) $this->option('test');
         $indexAll = (bool) $this->option('all');
+
+        $ids = [];
+        if ($idsOption = $this->option('ids')) {
+            $ids = array_values(array_unique(array_filter(
+                array_map('intval', explode(',', $idsOption)),
+                fn ($id) => $id > 0
+            )));
+            if (empty($ids)) {
+                $this->error('No valid IDs provided via --ids');
+                return self::FAILURE;
+            }
+        }
+
+        $deliveryText = $this->option('delivery-text');
+        $categoryId = $this->option('category-id') ? (int) $this->option('category-id') : null;
+        $isScopedSelection = !empty($ids) || $deliveryText !== null || $categoryId !== null;
 
         // If recreate-index flag is set, delete the existing index first
         if ($recreateIndex) {
@@ -61,17 +80,37 @@ class ReindexProducts extends Command
             'safe_checkout', 'secure_checkout', 'social_share', 'encourage_order', 'encourage_view',
             'product_thumbnail_id', 'product_meta_image_id', 'size_chart_image_id',
             'store_id', 'created_by_id', 'tax_id', 'brand_id', 'created_at',
-            'zambia_only', 'zimbabwe_only', 'sa_only'
+            'zambia_only', 'zimbabwe_only', 'sa_only', 'is_layby_disabled'
         ]);
 
-        // Apply filters based on mode
-        if (!$indexAll) {
-            // Normal mode: only index approved and active products
-            $query->where('status', 1)->where('is_approved', 1);
-            $this->info('Mode: Indexing only approved and active products (status=1, is_approved=1)');
-        } else {
-            // Index all mode: no filters
-            $this->warn('Mode: Indexing ALL products regardless of status/approval');
+        // Apply filters based on mode — any explicit scoping option (ids/delivery-text/category)
+        // bypasses the status/approved gate, same as --all, since the caller already
+        // deliberately scoped this down to a precise, known-good selection.
+        if (!empty($ids)) {
+            $query->whereIn('id', $ids);
+            $this->info('Mode: Indexing ' . count($ids) . ' specific product ID(s): ' . implode(',', $ids));
+        }
+        if ($deliveryText !== null) {
+            $query->whereRaw('LOWER(estimated_delivery_text) = ?', [mb_strtolower($deliveryText)]);
+            $this->info("Mode: Indexing products with delivery text = \"{$deliveryText}\"");
+        }
+        if ($categoryId !== null) {
+            $query->whereIn('id', function ($sub) use ($categoryId) {
+                $sub->select('product_id')->from('product_categories')
+                    ->where('category_id', $categoryId)
+                    ->whereNull('deleted_at');
+            });
+            $this->info("Mode: Indexing products in category ID {$categoryId}");
+        }
+        if (!$isScopedSelection) {
+            if (!$indexAll) {
+                // Normal mode: only index approved and active products
+                $query->where('status', 1)->where('is_approved', 1);
+                $this->info('Mode: Indexing only approved and active products (status=1, is_approved=1)');
+            } else {
+                // Index all mode: no filters
+                $this->warn('Mode: Indexing ALL products regardless of status/approval');
+            }
         }
 
         if ($testMode) {
@@ -81,10 +120,10 @@ class ReindexProducts extends Command
 
         $query->orderBy('id');
 
-        if ($fromId !== null) {
+        if (!$isScopedSelection && $fromId !== null) {
             $query->where('id', '>=', (int)$fromId);
         }
-        if ($toId !== null) {
+        if (!$isScopedSelection && $toId !== null) {
             $query->where('id', '<=', (int)$toId);
         }
 
@@ -93,12 +132,20 @@ class ReindexProducts extends Command
         if ($total === 0) {
             $this->error('No products found to index!');
             $this->warn('Query filters:');
-            if (!$indexAll) {
-                $this->warn('  - status = 1');
-                $this->warn('  - is_approved = 1');
+            if (!empty($ids)) {
+                $this->warn('  - id IN (' . implode(',', $ids) . ')');
+            } elseif ($deliveryText !== null) {
+                $this->warn("  - estimated_delivery_text = \"{$deliveryText}\"");
+            } elseif ($categoryId !== null) {
+                $this->warn("  - category_id = {$categoryId}");
+            } else {
+                if (!$indexAll) {
+                    $this->warn('  - status = 1');
+                    $this->warn('  - is_approved = 1');
+                }
+                if ($fromId) $this->warn("  - id >= {$fromId}");
+                if ($toId) $this->warn("  - id <= {$toId}");
             }
-            if ($fromId) $this->warn("  - id >= {$fromId}");
-            if ($toId) $this->warn("  - id <= {$toId}");
             $this->info('');
             $this->info('Checking product counts in database:');
             $totalProducts = DB::table('products')->count();
@@ -497,7 +544,7 @@ class ReindexProducts extends Command
                     'return_policy_text' => $row->return_policy_text,
                     'layby_eligible' => (function() use ($row) {
                         $price = $row->sale_price ? (float)$row->sale_price : (float)($row->price ?? 0);
-                        return $price >= 100;
+                        return $price >= 100 && !$row->is_layby_disabled;
                     })(),
 
                     // Product page features

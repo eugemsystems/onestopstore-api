@@ -44,8 +44,11 @@ class AdminOrderStatsController extends BaseAdminController
 
         $days = (int) $request->query('days', 30);
 
+        $statuses = OrderStatus::orderBy('sequence')->get(['id', 'name', 'slug']);
+
         return view('admin.orders.stats', [
             'days' => $days,
+            'statuses' => $statuses,
         ]);
     }
 
@@ -247,6 +250,93 @@ class AdminOrderStatsController extends BaseAdminController
         }
     }
 
+
+    /**
+     * Get order counts and revenue bucketed by calendar month across a date
+     * range (defaults to the given/current year), optionally filtered down
+     * to a set of order statuses.
+     * GET /admin/orders/stats/monthly
+     */
+    public function monthly(Request $request)
+    {
+        $this->checkPermission('overview');
+        try {
+            $statusIds = $request->query('status_ids', []);
+            if (!is_array($statusIds)) {
+                $statusIds = [$statusIds];
+            }
+            $statusIds = array_values(array_filter(array_map('intval', $statusIds)));
+
+            if ($request->filled('start_date') && $request->filled('end_date')) {
+                $since = Carbon::parse($request->start_date)->startOfDay();
+                $until = Carbon::parse($request->end_date)->endOfDay();
+            } else {
+                $year  = (int) $request->query('year', Carbon::now()->year);
+                $since = Carbon::create($year, 1, 1)->startOfYear();
+                $until = Carbon::create($year, 12, 31)->endOfYear();
+            }
+
+            // Cap the range to a sane number of buckets so a mistyped range
+            // (e.g. wrong year) can't generate thousands of empty months.
+            if ($since->diffInMonths($until) > 120) {
+                $until = $since->copy()->addMonths(120)->endOfMonth();
+            }
+
+            $query = Order::whereNull('parent_id')
+                ->whereNull('deleted_at')
+                ->where('created_at', '>=', $since)
+                ->where('created_at', '<=', $until);
+
+            if (!empty($statusIds)) {
+                $query->whereIn('order_status_id', $statusIds);
+            }
+
+            $rows = $query
+                ->selectRaw("TO_CHAR(created_at, 'YYYY-MM') as ym, COUNT(*) as orders_count, COALESCE(SUM(total), 0) as revenue")
+                ->groupBy(DB::raw("TO_CHAR(created_at, 'YYYY-MM')"))
+                ->get()
+                ->keyBy('ym');
+
+            $months = [];
+            $cursor = $since->copy()->startOfMonth();
+            $lastBucket = $until->copy()->startOfMonth();
+            while ($cursor->lte($lastBucket)) {
+                $key = $cursor->format('Y-m');
+                $row = $rows->get($key);
+                $months[] = [
+                    'key'          => $key,
+                    'label'        => $cursor->format('F Y'),   // "August 2025"
+                    'short_label'  => $cursor->format('M \'y'), // "Aug '25"
+                    'orders_count' => $row ? (int) $row->orders_count : 0,
+                    'revenue'      => $row ? (float) $row->revenue : 0.0,
+                ];
+                $cursor->addMonth();
+            }
+
+            $topOrdersMonth  = collect($months)->sortByDesc('orders_count')->first();
+            $topRevenueMonth = collect($months)->sortByDesc('revenue')->first();
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'range' => [
+                        'since' => $since->toDateString(),
+                        'until' => $until->toDateString(),
+                    ],
+                    'months' => $months,
+                    'totals' => [
+                        'orders_count' => array_sum(array_column($months, 'orders_count')),
+                        'revenue'      => array_sum(array_column($months, 'revenue')),
+                    ],
+                    'top_orders_month'  => $topOrdersMonth,
+                    'top_revenue_month' => $topRevenueMonth,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Monthly stats error: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Failed to load monthly statistics'], 500);
+        }
+    }
 
     /**
      * Get top products statistics

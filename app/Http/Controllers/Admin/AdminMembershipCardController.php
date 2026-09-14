@@ -388,7 +388,7 @@ class AdminMembershipCardController extends Controller
             $userId = $request->user_id;
 
             // Get status IDs for 'ready for collection' and 'collected'
-            $allowedStatusIds = OrderStatus::whereIn('name', ['ready for collection', 'collected'])
+            $allowedStatusIds = OrderStatus::whereIn('name', ['ready for collection', 'collected', 'delivered', 'out for delivery'])
                 ->pluck('id')
                 ->toArray();
 

@@ -57,6 +57,30 @@ return [
             'throw' => false,
         ],
 
+        // Local staging area for database dumps, kept separate from the app's own
+        // storage/app/private so backups are easy to find and don't get swept up
+        // by unrelated cleanup jobs. Dumps land here first; an admin then chooses
+        // which ones to push to the 'r2' disk below.
+        'backups-local' => [
+            'driver' => 'local',
+            'root' => storage_path('app/backups'),
+            'throw' => false,
+        ],
+
+        // Cloudflare R2 — S3-compatible, used to store off-server database backups.
+        // R2 has no egress fees and a 10GB/month free storage tier.
+        'r2' => [
+            'driver' => 's3',
+            'key' => env('R2_ACCESS_KEY_ID'),
+            'secret' => env('R2_SECRET_ACCESS_KEY'),
+            'region' => env('R2_DEFAULT_REGION', 'auto'),
+            'bucket' => env('R2_BUCKET'),
+            'url' => env('R2_URL'),
+            'endpoint' => env('R2_ENDPOINT'),
+            'use_path_style_endpoint' => env('R2_USE_PATH_STYLE_ENDPOINT', true),
+            'throw' => false,
+        ],
+
     ],
 
     /*

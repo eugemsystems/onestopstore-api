@@ -390,6 +390,7 @@ class AdminProductController extends Controller
             'is_external' => 'nullable|boolean',
             'is_approved' => 'nullable|boolean',
             'is_permanently_disabled' => 'nullable|boolean',
+            'is_layby_disabled' => 'nullable|boolean',
             'has_expedited_shipping' => 'nullable|boolean',
             'is_gift_card' => 'nullable|boolean',
             'zambia_only' => 'nullable|boolean',
@@ -656,6 +657,7 @@ class AdminProductController extends Controller
             'is_external' => 'nullable|boolean',
             'is_approved' => 'nullable|boolean',
             'is_permanently_disabled' => 'nullable|boolean',
+            'is_layby_disabled' => 'nullable|boolean',
             'has_expedited_shipping' => 'nullable|boolean',
             'is_gift_card' => 'nullable|boolean',
             'zambia_only' => 'nullable|boolean',
@@ -707,7 +709,7 @@ class AdminProductController extends Controller
             }
 
             // Remove any keys not in $fillable to avoid unexpected column errors on PostgreSQL
-            // (categories, tags, visible_time, is_cod etc. are not fillable but pass validation)
+            // (categories, tags, visible_time etc. are not fillable but pass validation)
             $fillable = (new Product)->getFillable();
             $safeData = array_intersect_key($validated, array_flip($fillable));
 
@@ -1479,6 +1481,222 @@ class AdminProductController extends Controller
         return back()->with([
             'bulk_affected' => $affected,
             'bulk_not_found' => $notFound,
+        ]);
+    }
+
+    /**
+     * Bulk Disable Layby on products, either by SKU list or by delivery text
+     */
+    public function bulkDisableLayby()
+    {
+        return view('admin.products.bulk-disable-layby');
+    }
+
+    public function bulkDisableLaybyProcess(Request $request)
+    {
+        return $this->bulkSetLaybyDisabledBySku($request, true);
+    }
+
+    public function bulkEnableLaybyProcess(Request $request)
+    {
+        return $this->bulkSetLaybyDisabledBySku($request, false);
+    }
+
+    /**
+     * Shared SKU lookup + chunked update for both the disable and re-enable
+     * layby-by-SKU forms — only the boolean written and the response keys differ.
+     */
+    private function bulkSetLaybyDisabledBySku(Request $request, bool $disabled)
+    {
+        if ($request->hasFile('sku_file')) {
+            $request->validate(['sku_file' => 'required|file|max:102400']);
+            $content = file_get_contents($request->file('sku_file')->getRealPath());
+        } else {
+            $request->validate(['skus' => 'required|string']);
+            $content = $request->input('skus');
+        }
+
+        $rawLines = preg_split('/\r\n|\r|\n/', trim($content));
+        $skus = array_values(array_filter(
+            array_map(function ($line) {
+                return trim(explode(',', trim($line), 2)[0]);
+            }, $rawLines)
+        ));
+
+        if (empty($skus)) {
+            return back()->with('error', 'No SKUs provided.');
+        }
+
+        $found = \Illuminate\Support\Facades\DB::table('products')
+            ->whereIn('sku', $skus)
+            ->whereNull('deleted_at')
+            ->select('id', 'sku', 'name')
+            ->get()
+            ->keyBy('sku');
+
+        $foundSkus = $found->keys()->all();
+        $notFound  = array_values(array_diff($skus, $foundSkus));
+        $affected  = [];
+
+        // Bulk update in chunks of 500 — single UPDATE per chunk, no ORM overhead
+        foreach (array_chunk($foundSkus, 500) as $chunk) {
+            \Illuminate\Support\Facades\DB::table('products')
+                ->whereIn('sku', $chunk)
+                ->whereNull('deleted_at')
+                ->update(['is_layby_disabled' => $disabled, 'updated_at' => now()]);
+        }
+
+        foreach ($foundSkus as $sku) {
+            $affected[] = ['sku' => $sku, 'name' => $found[$sku]->name];
+        }
+
+        \Illuminate\Support\Facades\Cache::put(
+            'products_cache_version',
+            ((int) \Illuminate\Support\Facades\Cache::get('products_cache_version', 1)) + 1,
+            now()->addDays(365)
+        );
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'data'    => ['affected' => $affected, 'not_found' => $notFound],
+            ]);
+        }
+
+        $sessionPrefix = $disabled ? 'bulk_layby' : 'bulk_layby_enable';
+
+        return back()->with([
+            "{$sessionPrefix}_affected" => $affected,
+            "{$sessionPrefix}_not_found" => $notFound,
+        ]);
+    }
+
+    public function bulkDisableLaybyByDeliveryTextProcess(Request $request)
+    {
+        $request->validate(['delivery_texts' => 'required|string']);
+
+        $rawLines = preg_split('/\r\n|\r|\n/', trim($request->input('delivery_texts')));
+        $deliveryTexts = array_values(array_unique(array_filter(
+            array_map('trim', $rawLines)
+        )));
+
+        if (empty($deliveryTexts)) {
+            return back()->with('error', 'No delivery text values provided.');
+        }
+
+        // Matches products' estimated_delivery_text exactly (case-insensitive) — there is
+        // no fixed enum for this free-text field, so admins must type it exactly as shown
+        // on the product (e.g. "Same Day Delivery").
+        $affectedRows = \Illuminate\Support\Facades\DB::table('products')
+            ->whereNull('deleted_at')
+            ->whereIn(\Illuminate\Support\Facades\DB::raw('LOWER(estimated_delivery_text)'), array_map('mb_strtolower', $deliveryTexts))
+            ->select('id', 'sku', 'name', 'estimated_delivery_text')
+            ->get();
+
+        \Illuminate\Support\Facades\DB::table('products')
+            ->whereNull('deleted_at')
+            ->whereIn(\Illuminate\Support\Facades\DB::raw('LOWER(estimated_delivery_text)'), array_map('mb_strtolower', $deliveryTexts))
+            ->update(['is_layby_disabled' => true, 'updated_at' => now()]);
+
+        \Illuminate\Support\Facades\Cache::put(
+            'products_cache_version',
+            ((int) \Illuminate\Support\Facades\Cache::get('products_cache_version', 1)) + 1,
+            now()->addDays(365)
+        );
+
+        return back()->with([
+            'bulk_layby_delivery_affected' => $affectedRows->map(fn ($row) => (array) $row)->all(),
+            'bulk_layby_delivery_texts' => $deliveryTexts,
+        ]);
+    }
+
+    /**
+     * Bulk enable/disable Cash on Delivery on products by SKU list
+     */
+    public function bulkCod()
+    {
+        return view('admin.products.bulk-cod');
+    }
+
+    public function bulkCodProcess(Request $request)
+    {
+        return $this->bulkSetCodBySku($request, true);
+    }
+
+    public function bulkDisableCodProcess(Request $request)
+    {
+        return $this->bulkSetCodBySku($request, false);
+    }
+
+    /**
+     * Shared SKU lookup + chunked update for both the enable and disable
+     * Cash-on-Delivery-by-SKU forms — only the boolean written and the
+     * response keys differ. `is_cod` isn't in Product::$fillable (see the
+     * note above the $safeData filtering in update()), so this goes through
+     * the query builder directly, same as the layby bulk actions.
+     */
+    private function bulkSetCodBySku(Request $request, bool $enabled)
+    {
+        if ($request->hasFile('sku_file')) {
+            $request->validate(['sku_file' => 'required|file|max:102400']);
+            $content = file_get_contents($request->file('sku_file')->getRealPath());
+        } else {
+            $request->validate(['skus' => 'required|string']);
+            $content = $request->input('skus');
+        }
+
+        $rawLines = preg_split('/\r\n|\r|\n/', trim($content));
+        $skus = array_values(array_filter(
+            array_map(function ($line) {
+                return trim(explode(',', trim($line), 2)[0]);
+            }, $rawLines)
+        ));
+
+        if (empty($skus)) {
+            return back()->with('error', 'No SKUs provided.');
+        }
+
+        $found = \Illuminate\Support\Facades\DB::table('products')
+            ->whereIn('sku', $skus)
+            ->whereNull('deleted_at')
+            ->select('id', 'sku', 'name')
+            ->get()
+            ->keyBy('sku');
+
+        $foundSkus = $found->keys()->all();
+        $notFound  = array_values(array_diff($skus, $foundSkus));
+        $affected  = [];
+
+        // Bulk update in chunks of 500 — single UPDATE per chunk, no ORM overhead
+        foreach (array_chunk($foundSkus, 500) as $chunk) {
+            \Illuminate\Support\Facades\DB::table('products')
+                ->whereIn('sku', $chunk)
+                ->whereNull('deleted_at')
+                ->update(['is_cod' => $enabled, 'updated_at' => now()]);
+        }
+
+        foreach ($foundSkus as $sku) {
+            $affected[] = ['sku' => $sku, 'name' => $found[$sku]->name];
+        }
+
+        \Illuminate\Support\Facades\Cache::put(
+            'products_cache_version',
+            ((int) \Illuminate\Support\Facades\Cache::get('products_cache_version', 1)) + 1,
+            now()->addDays(365)
+        );
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'data'    => ['affected' => $affected, 'not_found' => $notFound],
+            ]);
+        }
+
+        $sessionPrefix = $enabled ? 'bulk_cod' : 'bulk_cod_disable';
+
+        return back()->with([
+            "{$sessionPrefix}_affected" => $affected,
+            "{$sessionPrefix}_not_found" => $notFound,
         ]);
     }
 

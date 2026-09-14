@@ -212,6 +212,21 @@ return [
             'timeout' => 60,
             'nice' => 0,
         ],
+
+        // Dedicated, low-concurrency queue for RunDatabaseBackupJob — a 5GB
+        // pg_dump + upload runs far longer than the default queue's timeout.
+        'supervisor-backups' => [
+            'connection' => 'redis',
+            'queue' => ['backups'],
+            'balance' => 'simple',
+            'maxProcesses' => 1,
+            'maxTime' => 0,
+            'maxJobs' => 0,
+            'memory' => 256,
+            'tries' => 1,
+            'timeout' => 3700,
+            'nice' => 0,
+        ],
     ],
 
     'environments' => [

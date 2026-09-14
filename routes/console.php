@@ -17,6 +17,21 @@ use Illuminate\Support\Facades\Schedule;
 // If you really need this to run every minute synchronously:
 //Schedule::call('App\Http\Controllers\CommissionHistoryController@store')->everyMinute();
 
+// ── Database Backups (runs daily at 2 AM) ─────────────────────────────────
+// Dumps every enabled target in config/backup.php (this app, media, crm) via
+// pg_dump to local disk (storage/app/backups), encrypting each if
+// BACKUP_ENCRYPTION_KEY is set. Does NOT upload anywhere — review the dump
+// list at /admin/backups and push individual backups to R2 from there.
+Schedule::command(\App\Console\Commands\BackupDatabase::class)
+    ->name('db:backup')
+    ->dailyAt('02:00')
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->runInBackground()
+    ->onFailure(function () {
+        \Illuminate\Support\Facades\Log::critical('Scheduled database backup failed — see logs for db:backup');
+    });
+
 // ── Abandoned Cart Detection (runs daily at 2 AM)
 Schedule::command(\App\Console\Commands\DetectAbandonedCarts::class)
     ->name('analytics:detect-abandoned-carts')
@@ -97,6 +112,14 @@ Schedule::command(\App\Console\Commands\BanOverdueAuctionBidders::class)
 Schedule::command(\App\Console\Commands\SendLaybyDocumentReminders::class)
     ->name('layby:send-document-reminders')
     ->twiceDaily(0, 12)
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->runInBackground();
+
+// ── Abandoned Cart Reminders (checks hourly; spacing/thresholds are admin-configurable) ──
+Schedule::command(\App\Console\Commands\SendCartReminders::class)
+    ->name('cart:send-reminders')
+    ->hourly()
     ->withoutOverlapping()
     ->onOneServer()
     ->runInBackground();

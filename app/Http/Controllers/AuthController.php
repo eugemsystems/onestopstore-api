@@ -279,8 +279,19 @@ class AuthController extends Controller
             }
 
             DB::commit();
+
+            $token = $user->createToken('auth_token')->plainTextToken;
+            // Without this, the token's role_type stays NULL and
+            // OrderController/RefundController's role check silently falls
+            // through to an UNFILTERED query — this newly registered user
+            // would see every user's orders and refunds. login() already
+            // does this; register() was missing it.
+            $user->tokens()->update([
+                'role_type' => $user->getRoleNames()->first()
+            ]);
+
             return [
-                'access_token' =>  $user->createToken('auth_token')->plainTextToken,
+                'access_token' =>  $token,
                 'permissions'  =>  $user->getPermissionNames(),
                 'success' => true
             ];
