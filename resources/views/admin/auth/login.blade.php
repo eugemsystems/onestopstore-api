@@ -59,7 +59,7 @@
     <div class="login-card">
         <div class="login-header">
             <img src="{{ asset('light-logo.png') }}" alt="One Stop Store Logo" class="login-logo">
-            <h3 class="mt-3">Raines Admin</h3>
+            <h3 class="mt-3">OneStopStore Admin</h3>
             <p class="mb-0">Sign in to continue</p>
         </div>
         <div class="login-body">

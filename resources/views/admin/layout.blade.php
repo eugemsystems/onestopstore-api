@@ -77,6 +77,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+    <link rel="icon" type="image/png" href="{{asset('favicon.png')}}" sizes="96x96">
     <style>
         :root {
             --primary-color: #7f0000;
@@ -938,8 +939,8 @@
                     {{-- Logo --}}
                     <div class="rail-logo">
                         <a href="{{ route('admin.dashboard') }}">
-                            <img src="https://media.onestopstore.co.zw/storage/uploads/2026/07/31/18/57/8e1a3572-d6fc-477e-ac87-0deeb4f54043.png"
-                                 style="max-height:36px;width:auto;max-width:56px;" alt="Raines">
+                            <img src="{{asset('light-logo.png')}}"
+                                 style="max-height:110px;width:auto;max-width:110px;" alt="Raines">
                         </a>
                     </div>
 
