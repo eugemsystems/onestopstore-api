@@ -25,7 +25,9 @@ class GenerateSitemaps extends Command
     protected $description = 'Pre-generate all sitemap XML files as static files for instant serving to Google';
 
     private string $baseUrl;
-    private string $zmBaseUrl;
+    private string $frontendRoot;
+    private ?string $zmBaseUrl;
+    private bool $mirrorZm;
     private string $dir = 'sitemaps';
     private string $prefix = 'v5-';
     // Bumping the prefix (v4 -> v5) forces a clean break from any stale files
@@ -38,14 +40,22 @@ class GenerateSitemaps extends Command
 
     public function handle(): void
     {
-        // Normalise: page content URLs always need the /en locale prefix regardless
-        // of how FRONTEND_URL is configured on the server (with or without /en).
+        // Locale-prefixed routing (raines' /en, /zm market split) isn't universal
+        // across deployments of this platform — a single-market storefront like
+        // onestopstore has no /en or /zm routes at all, so linking to them would
+        // 404 in Google. SITEMAP_LOCALE_PREFIX defaults to raines' historical
+        // "en" for backward compatibility; set it to an empty string to emit
+        // bare URLs instead. SITEMAP_ENABLE_ZM_MIRROR controls whether a second
+        // Zambia/ZMW-market URL set is emitted alongside the primary one.
         $rawFrontend = rtrim(env('FRONTEND_URL', 'https://raines.africa'), '/');
-        $frontendRoot = preg_replace('#/en$#', '', $rawFrontend);
-        $this->baseUrl = $frontendRoot . '/en';
+        $localePrefix = trim((string) env('SITEMAP_LOCALE_PREFIX', 'en'), '/');
+        $this->frontendRoot = preg_replace('#/' . preg_quote($localePrefix ?: 'en', '#') . '$#', '', $rawFrontend);
+        $this->baseUrl = $localePrefix ? "{$this->frontendRoot}/{$localePrefix}" : $this->frontendRoot;
+
+        $this->mirrorZm = filter_var(env('SITEMAP_ENABLE_ZM_MIRROR', true), FILTER_VALIDATE_BOOLEAN);
         // Zambia market variant — same products, ZMW pricing baked in at render time
         // (see src/app/zm/product/[productSlug]/page.js on the frontend).
-        $this->zmBaseUrl = $frontendRoot . '/zm';
+        $this->zmBaseUrl = $this->mirrorZm ? "{$this->frontendRoot}/zm" : null;
 
         $perFile = (int) $this->option('products-per-file');
         $dryRun = $this->option('dry-run');
@@ -54,7 +64,7 @@ class GenerateSitemaps extends Command
         if (str_contains($this->baseUrl, 'localhost') || str_contains($this->baseUrl, '127.0.0.1')) {
             $this->error("FRONTEND_URL is set to a local address: {$this->baseUrl}");
             $this->error('Refusing to generate sitemaps — this would poison production with localhost URLs.');
-            $this->error('Set FRONTEND_URL=https://raines.africa/en in your .env and retry.');
+            $this->error('Set FRONTEND_URL to your real production domain in .env and retry.');
             return;
         }
 
@@ -141,9 +151,11 @@ class GenerateSitemaps extends Command
         // ── 5. Sitemap index ─────────────────────────────────────
         $this->generateSitemapIndex($totalFiles, $featuredFiles, $saleFiles);
 
-        $generatedFiles = 4 + ($featuredFiles + $saleFiles + $totalFiles) * 2;
+        $multiplier = $this->mirrorZm ? 2 : 1;
+        $generatedFiles = (3 + $multiplier) + ($featuredFiles + $saleFiles + $totalFiles) * $multiplier;
         $this->newLine();
-        $this->info("Done. Generated {$generatedFiles} files (en + zm) in storage/app/{$this->dir}/");
+        $variantLabel = $this->mirrorZm ? ' (en + zm)' : '';
+        $this->info("Done. Generated {$generatedFiles} files{$variantLabel} in storage/app/{$this->dir}/");
         Log::info('sitemaps:generate completed', ['product_files' => $totalFiles, 'total_products' => $totalProducts]);
     }
 
@@ -172,13 +184,20 @@ class GenerateSitemaps extends Command
 
         $today = now()->toDateString();
         $urls = [
-            ['loc' => str_replace('/en', '', $this->baseUrl), 'changefreq' => 'daily', 'priority' => '1.0'],
+            ['loc' => $this->frontendRoot, 'changefreq' => 'daily', 'priority' => '1.0'],
             ['loc' => "{$this->baseUrl}/collections", 'changefreq' => 'daily', 'priority' => '0.9'],
             ['loc' => "{$this->baseUrl}/blogs", 'changefreq' => 'weekly', 'priority' => '0.7'],
             ['loc' => "{$this->baseUrl}/about-us", 'changefreq' => 'monthly', 'priority' => '0.5'],
             ['loc' => "{$this->baseUrl}/contact-us", 'changefreq' => 'monthly', 'priority' => '0.5'],
-            ['loc' => "{$this->baseUrl}/auction", 'changefreq' => 'daily', 'priority' => '0.8'],
         ];
+
+        // The auction browse page's path isn't consistent across deployments
+        // of this platform (raines: "/auction", onestopstore: "/auctions") —
+        // configurable rather than assuming one or the other.
+        $auctionPath = trim((string) env('SITEMAP_AUCTION_PATH', '/auction'));
+        if ($auctionPath !== '') {
+            $urls[] = ['loc' => "{$this->baseUrl}{$auctionPath}", 'changefreq' => 'daily', 'priority' => '0.8'];
+        }
 
         $xml = $this->buildUrlsetXml($urls, $today);
         Storage::disk('public')->put("{$this->dir}/{$this->prefix}sitemap-static.xml", $xml);
@@ -202,20 +221,28 @@ class GenerateSitemaps extends Command
             'priority' => '0.8',
         ])->toArray();
 
+        if (empty($urls)) {
+            $urls[] = ['loc' => "{$this->baseUrl}/collections", 'changefreq' => 'daily', 'priority' => '0.5'];
+        }
+
+        Storage::disk('public')->put("{$this->dir}/{$this->prefix}sitemap-categories.xml", $this->buildUrlsetXml($urls, $today));
+        $this->line("  {$this->prefix}sitemap-categories.xml (" . count($urls) . ' URLs)');
+
+        if (!$this->mirrorZm) {
+            return;
+        }
+
         $zmUrls = $categories->map(fn($slug) => [
             'loc' => "{$this->zmBaseUrl}/collections/{$slug}",
             'changefreq' => 'weekly',
             'priority' => '0.8',
         ])->toArray();
 
-        if (empty($urls)) {
-            $urls[] = ['loc' => "{$this->baseUrl}/collections", 'changefreq' => 'daily', 'priority' => '0.5'];
+        if (empty($zmUrls)) {
             $zmUrls[] = ['loc' => "{$this->zmBaseUrl}", 'changefreq' => 'daily', 'priority' => '0.5'];
         }
 
-        Storage::disk('public')->put("{$this->dir}/{$this->prefix}sitemap-categories.xml", $this->buildUrlsetXml($urls, $today));
         Storage::disk('public')->put("{$this->dir}/{$this->prefix}sitemap-categories-zm.xml", $this->buildUrlsetXml($zmUrls, $today));
-        $this->line("  {$this->prefix}sitemap-categories.xml (" . count($urls) . ' URLs)');
         $this->line("  {$this->prefix}sitemap-categories-zm.xml (" . count($zmUrls) . ' URLs)');
     }
 
@@ -274,6 +301,17 @@ class GenerateSitemaps extends Command
             'priority' => (string) $priority,
         ])->toArray();
 
+        if (empty($urls)) {
+            $urls[] = ['loc' => "{$this->baseUrl}/collections", 'changefreq' => 'daily', 'priority' => '0.5'];
+        }
+
+        $filterPrefix = $filter ? "{$filter}-" : '';
+        Storage::disk('public')->put("{$this->dir}/{$this->prefix}sitemap-products-{$filterPrefix}{$index}.xml", $this->buildUrlsetXml($urls));
+
+        if (!$this->mirrorZm) {
+            return;
+        }
+
         $zmUrls = $products->map(fn($p) => [
             'loc' => "{$this->zmBaseUrl}/product/{$p->slug}",
             'lastmod' => $lastmod($p),
@@ -281,46 +319,50 @@ class GenerateSitemaps extends Command
             'priority' => (string) $priority,
         ])->toArray();
 
-        if (empty($urls)) {
-            $urls[] = ['loc' => "{$this->baseUrl}/collections", 'changefreq' => 'daily', 'priority' => '0.5'];
+        if (empty($zmUrls)) {
             $zmUrls[] = ['loc' => "{$this->zmBaseUrl}", 'changefreq' => 'daily', 'priority' => '0.5'];
         }
 
-        $filterPrefix = $filter ? "{$filter}-" : '';
-        Storage::disk('public')->put("{$this->dir}/{$this->prefix}sitemap-products-{$filterPrefix}{$index}.xml", $this->buildUrlsetXml($urls));
         Storage::disk('public')->put("{$this->dir}/{$this->prefix}sitemap-products-zm-{$filterPrefix}{$index}.xml", $this->buildUrlsetXml($zmUrls));
     }
 
     private function generateSitemapIndex(int $productFileCount, int $featuredFileCount = 0, int $saleFileCount = 0): void
     {
         // Use the frontend URL — Google fetches sitemaps via the frontend domain
-        $frontendUrl = rtrim(env('FRONTEND_URL', 'https://raines.africa'), '/');
-        $frontendUrl = preg_replace('#/en$#', '', $frontendUrl);
+        $frontendUrl = $this->frontendRoot;
         $today = now()->toDateString();
 
         $sitemaps = [];
         $p = $this->prefix;
         $sitemaps[] = ['loc' => "{$frontendUrl}/{$p}sitemap-static.xml", 'lastmod' => $today];
         $sitemaps[] = ['loc' => "{$frontendUrl}/{$p}sitemap-categories.xml", 'lastmod' => $today];
-        $sitemaps[] = ['loc' => "{$frontendUrl}/{$p}sitemap-categories-zm.xml", 'lastmod' => $today];
+        if ($this->mirrorZm) {
+            $sitemaps[] = ['loc' => "{$frontendUrl}/{$p}sitemap-categories-zm.xml", 'lastmod' => $today];
+        }
         $sitemaps[] = ['loc' => "{$frontendUrl}/{$p}sitemap-blogs.xml", 'lastmod' => $today];
 
         // Featured products first (highest crawl priority)
         for ($i = 0; $i < $featuredFileCount; $i++) {
             $sitemaps[] = ['loc' => "{$frontendUrl}/{$p}sitemap-products-featured-{$i}.xml", 'lastmod' => $today];
-            $sitemaps[] = ['loc' => "{$frontendUrl}/{$p}sitemap-products-zm-featured-{$i}.xml", 'lastmod' => $today];
+            if ($this->mirrorZm) {
+                $sitemaps[] = ['loc' => "{$frontendUrl}/{$p}sitemap-products-zm-featured-{$i}.xml", 'lastmod' => $today];
+            }
         }
 
         // Sale products next
         for ($i = 0; $i < $saleFileCount; $i++) {
             $sitemaps[] = ['loc' => "{$frontendUrl}/{$p}sitemap-products-sale-{$i}.xml", 'lastmod' => $today];
-            $sitemaps[] = ['loc' => "{$frontendUrl}/{$p}sitemap-products-zm-sale-{$i}.xml", 'lastmod' => $today];
+            if ($this->mirrorZm) {
+                $sitemaps[] = ['loc' => "{$frontendUrl}/{$p}sitemap-products-zm-sale-{$i}.xml", 'lastmod' => $today];
+            }
         }
 
         // All products (en + zm/Kwacha variant, see GenerateSitemaps::generateProductSitemap)
         for ($i = 0; $i < $productFileCount; $i++) {
             $sitemaps[] = ['loc' => "{$frontendUrl}/{$p}sitemap-products-{$i}.xml", 'lastmod' => $today];
-            $sitemaps[] = ['loc' => "{$frontendUrl}/{$p}sitemap-products-zm-{$i}.xml", 'lastmod' => $today];
+            if ($this->mirrorZm) {
+                $sitemaps[] = ['loc' => "{$frontendUrl}/{$p}sitemap-products-zm-{$i}.xml", 'lastmod' => $today];
+            }
         }
 
         $xml = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
