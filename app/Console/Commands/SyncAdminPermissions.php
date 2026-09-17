@@ -164,6 +164,12 @@ class SyncAdminPermissions extends Command
                 ['name' => 'product-feed.export-tsv', 'description' => 'Export TSV feed'],
             ],
 
+            'Daily Regional Feeds' => [
+                ['name' => 'daily-feeds.index', 'description' => 'View daily regional feed settings & run history'],
+                ['name' => 'daily-feeds.update-settings', 'description' => 'Change daily regional feed schedule/filters'],
+                ['name' => 'daily-feeds.run-now', 'description' => 'Manually trigger daily regional feed generation'],
+            ],
+
             'Product Import' => [
                 ['name' => 'import.index', 'description' => 'View import page'],
                 ['name' => 'import.upload', 'description' => 'Upload import file'],

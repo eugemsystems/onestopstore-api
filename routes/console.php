@@ -206,3 +206,25 @@ Schedule::command('google:submit-urls', ['--hours' => 12, '--limit' => 200, '--b
         ->onOneServer()
         ->runInBackground();
 })();
+
+// ── Daily Regional Feeds (Global/Zimbabwe/Zambia Merchant feeds) ──────────
+// Time is admin-configurable at /admin/daily-feeds — pulled from settings
+// so admins can change it without a deploy (schedule:run re-evaluates this
+// file every minute, so a saved change takes effect on its next tick).
+// Files: public/dailyfeeds/... -> served directly at {APP_URL}/dailyfeeds/...
+(function () {
+    if (!\Illuminate\Support\Facades\Schema::hasTable('daily_feed_settings')) {
+        return;
+    }
+    $scheduleTime = \App\Models\DailyFeedSetting::get('schedule_time', '04:00');
+    [$hour, $minute] = array_pad(explode(':', $scheduleTime), 2, '00');
+    Schedule::command(\App\Console\Commands\GenerateDailyRegionalFeeds::class)
+        ->name('feed:daily-regional')
+        ->dailyAt(sprintf('%02d:%02d', (int) $hour, (int) $minute))
+        ->withoutOverlapping()
+        ->onOneServer()
+        ->runInBackground()
+        ->onFailure(function () {
+            \Illuminate\Support\Facades\Log::error('feed:daily-regional scheduled run failed — see logs and /admin/daily-feeds');
+        });
+})();

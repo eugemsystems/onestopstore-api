@@ -411,6 +411,14 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('/download-temp', [\App\Http\Controllers\Admin\AdminProductFeedController::class, 'downloadTemp'])->name('download-temp');
         });
 
+        // Daily Regional Feeds (scheduled Google Merchant feeds per region/currency)
+        Route::prefix('daily-feeds')->name('daily-feeds.')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Admin\AdminDailyFeedController::class, 'index'])->name('index');
+            Route::post('/settings', [\App\Http\Controllers\Admin\AdminDailyFeedController::class, 'updateSettings'])->name('update-settings');
+            Route::post('/run-now', [\App\Http\Controllers\Admin\AdminDailyFeedController::class, 'runNow'])->name('run-now');
+            Route::get('/status/{batchId}', [\App\Http\Controllers\Admin\AdminDailyFeedController::class, 'status'])->name('status');
+        });
+
         // Promo Templates
         Route::prefix('promo-templates')->name('promo-templates.')->group(function () {
             Route::get('/', [\App\Http\Controllers\Admin\PromoTemplateController::class, 'index'])->name('index');
