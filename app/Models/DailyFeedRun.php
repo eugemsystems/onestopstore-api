@@ -18,6 +18,7 @@ class DailyFeedRun extends Model
         'file_url',
         'file_verified',
         'file_size_bytes',
+        'shard_count',
         'min_price_filter',
         'error_message',
     ];

@@ -23,8 +23,8 @@ use App\Services\CurrencyDetectionService;
  * before ever reaching PHP until this was changed to match that pattern.
  * URLs never change:
  *
- *   {APP_URL}/dailyfeeds/global/usd/global-usd.xml
- *   {APP_URL}/dailyfeeds/global/zmw/global-zmw.xml
+ *   {APP_URL}/dailyfeeds/global/usd/global-usd-1.xml .. global-usd-{N}.xml
+ *   {APP_URL}/dailyfeeds/global/zmw/global-zmw-1.xml .. global-zmw-{N}.xml
  *   {APP_URL}/dailyfeeds/zimbabwe/zimbabwe.xml
  *   {APP_URL}/dailyfeeds/zambia/zambia.xml
  *
@@ -38,6 +38,17 @@ use App\Services\CurrencyDetectionService;
  * straight into a streamed file write — nothing is held in memory — so a
  * single run comfortably covers a catalog far bigger than what currently
  * exists without needing a queue.
+ *
+ * Global is split into a FIXED number of files ({key}_shard_count setting,
+ * default 20) rather than one giant one. At ~1.5M products a single file
+ * was ~800MB, which reliably got cut off partway through Google's fetch
+ * (nginx/PHP execution-time limits on a multi-minute transfer) — Google
+ * would ingest a fraction of the catalog and stop. A FIXED shard count
+ * (not "however many 100k-chunks are needed today") means the file/URL set
+ * never changes as the catalog grows — only the per-file item count does —
+ * so the shard URLs only need to be registered in Merchant Center once.
+ * Products are distributed round-robin across shards in a single query
+ * pass (not N separate passes) to keep this as cheap as the unsharded case.
  *
  * Schedule time is admin-configurable (see DailyFeedSetting::get('schedule_time')
  * and routes/console.php, which re-registers the schedule from that setting).
@@ -53,12 +64,12 @@ class GenerateDailyRegionalFeeds extends Command
     private string $frontendUrl;
     private string $zmFrontendUrl;
 
-    /** @var array<string,array{region:?string,currency:string,path:string}> */
+    /** @var array<string,array{region:?string,currency:string,sharded:bool,path?:string,pathTemplate?:string}> */
     private array $fileDefinitions = [
-        'global_usd' => ['region' => null, 'currency' => 'USD', 'path' => 'dailyfeeds/global/usd/global-usd.xml'],
-        'global_zmw' => ['region' => null, 'currency' => 'ZMW', 'path' => 'dailyfeeds/global/zmw/global-zmw.xml'],
-        'zimbabwe_usd' => ['region' => 'zimbabwe', 'currency' => 'USD', 'path' => 'dailyfeeds/zimbabwe/zimbabwe.xml'],
-        'zambia_zmw' => ['region' => 'zambia', 'currency' => 'ZMW', 'path' => 'dailyfeeds/zambia/zambia.xml'],
+        'global_usd' => ['region' => null, 'currency' => 'USD', 'sharded' => true, 'pathTemplate' => 'dailyfeeds/global/usd/global-usd-{n}.xml'],
+        'global_zmw' => ['region' => null, 'currency' => 'ZMW', 'sharded' => true, 'pathTemplate' => 'dailyfeeds/global/zmw/global-zmw-{n}.xml'],
+        'zimbabwe_usd' => ['region' => 'zimbabwe', 'currency' => 'USD', 'sharded' => false, 'path' => 'dailyfeeds/zimbabwe/zimbabwe.xml'],
+        'zambia_zmw' => ['region' => 'zambia', 'currency' => 'ZMW', 'sharded' => false, 'path' => 'dailyfeeds/zambia/zambia.xml'],
     ];
 
     public function handle(): void
@@ -74,7 +85,12 @@ class GenerateDailyRegionalFeeds extends Command
         $keys = empty($only) ? array_keys($this->fileDefinitions) : array_intersect(array_keys($this->fileDefinitions), $only);
 
         foreach ($keys as $key) {
-            $this->generateFile($key, $this->fileDefinitions[$key], $batchId);
+            $def = $this->fileDefinitions[$key];
+            if ($def['sharded'] ?? false) {
+                $this->generateShardedFile($key, $def, $batchId);
+            } else {
+                $this->generateFile($key, $def, $batchId);
+            }
         }
 
         $this->info("Batch {$batchId} complete.");
@@ -278,6 +294,213 @@ class GenerateDailyRegionalFeeds extends Command
 
             $this->error("[{$label}] failed: {$e->getMessage()}");
             Log::error('feed:daily-regional file failed', [
+                'file_key' => $key,
+                'batch_id' => $batchId,
+                'error' => $e->getMessage(),
+            ]);
+        } finally {
+            $lock->release();
+        }
+    }
+
+    /**
+     * Same as generateFile(), but writes {n}_shard_count separate files in a
+     * single query pass instead of one giant file — see class docblock for
+     * why. Products are handed to shards round-robin as the cursor reads
+     * them, so all N files fill up evenly without N separate table scans.
+     */
+    private function generateShardedFile(string $key, array $def, string $batchId): void
+    {
+        $label = DailyFeedRun::LABELS[$key] ?? $key;
+        $enabled = DailyFeedSetting::get("{$key}_enabled", '1') == '1';
+
+        if (!$enabled) {
+            DailyFeedRun::create([
+                'file_key' => $key,
+                'batch_id' => $batchId,
+                'status' => 'skipped',
+                'started_at' => now(),
+                'finished_at' => now(),
+                'duration_seconds' => 0,
+                'error_message' => 'Feed disabled in Daily Feed settings.',
+            ]);
+            $this->line("[{$label}] skipped (disabled).");
+            return;
+        }
+
+        $lock = Cache::lock("feed:daily-regional:lock:{$key}", 10800); // 3h safety ceiling
+        if (!$lock->get()) {
+            DailyFeedRun::create([
+                'file_key' => $key,
+                'batch_id' => $batchId,
+                'status' => 'skipped',
+                'started_at' => now(),
+                'finished_at' => now(),
+                'duration_seconds' => 0,
+                'error_message' => 'Another run for this file was already in progress — skipped to avoid a race on the output file.',
+            ]);
+            $this->warn("[{$label}] skipped — another run for this file is already in progress.");
+            Log::warning('feed:daily-regional skipped: already running', ['file_key' => $key, 'batch_id' => $batchId]);
+            return;
+        }
+
+        $run = DailyFeedRun::create([
+            'file_key' => $key,
+            'batch_id' => $batchId,
+            'status' => 'running',
+            'started_at' => now(),
+        ]);
+
+        $start = microtime(true);
+        $handles = [];
+        $tempPaths = [];
+        $finalPaths = [];
+
+        try {
+            $currency = $def['currency'];
+            $minPriceInput = (float) DailyFeedSetting::get("{$key}_min_price", 0);
+            $limit = (int) DailyFeedSetting::get("{$key}_limit", 0);
+            $shardCount = max(1, (int) DailyFeedSetting::get("{$key}_shard_count", 20));
+
+            $minPriceUsd = $this->convertToUsd($minPriceInput, $currency);
+
+            for ($i = 1; $i <= $shardCount; $i++) {
+                $relativePath = str_replace('{n}', (string) $i, $def['pathTemplate']);
+                $finalPath = storage_path('app/public/' . $relativePath);
+                $tempPath = $finalPath . '.tmp';
+
+                if (!is_dir(dirname($finalPath))) {
+                    mkdir(dirname($finalPath), 0755, true);
+                }
+
+                $fp = fopen($tempPath, 'w');
+                if (!$fp) {
+                    throw new \RuntimeException("Cannot open {$tempPath} for writing.");
+                }
+
+                fwrite($fp, '<?xml version="1.0" encoding="UTF-8"?>' . "\n");
+                fwrite($fp, '<rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">' . "\n");
+                fwrite($fp, "<channel>\n");
+                fwrite($fp, "  <title>Raines Africa Products - {$this->cleanXml($label)} (part {$i}/{$shardCount})</title>\n");
+                fwrite($fp, "  <link>{$this->frontendUrl}</link>\n");
+                fwrite($fp, "  <description>Daily regional product feed - {$this->cleanXml($label)}, part {$i} of {$shardCount}</description>\n");
+
+                $handles[$i] = $fp;
+                $tempPaths[$i] = $tempPath;
+                $finalPaths[$i] = $finalPath;
+            }
+
+            $query = DB::table('products')
+                ->leftJoin('product_brands', 'products.brand_id', '=', 'product_brands.id')
+                ->leftJoin('attachments', 'products.product_thumbnail_id', '=', 'attachments.id')
+                ->select([
+                    'products.id',
+                    'products.name',
+                    'products.slug',
+                    'products.short_description',
+                    'products.description',
+                    'products.sku',
+                    'products.price',
+                    'products.sale_price',
+                    'products.is_sale_enable',
+                    'products.stock_status',
+                    'products.is_featured',
+                    'product_brands.name as brand_name',
+                    'attachments.image_url',
+                ])
+                ->where('products.status', 1)
+                ->where('products.is_approved', 1)
+                ->whereNull('products.deleted_at')
+                ->whereNotNull('products.slug')
+                ->whereNotNull('products.product_thumbnail_id')
+                ->where('products.price', '>', 0);
+
+            if ($minPriceUsd > 0) {
+                $query->where('products.price', '>=', $minPriceUsd);
+            }
+            // Global: no region restriction (region is always null here).
+
+            $written = 0;
+            $query->chunkById(1000, function ($products) use ($handles, $shardCount, $currency, $limit, &$written) {
+                foreach ($products as $product) {
+                    if ($limit > 0 && $written >= $limit) {
+                        return false;
+                    }
+
+                    $shardIndex = ($written % $shardCount) + 1;
+                    $this->writeItem($handles[$shardIndex], $product, $currency);
+                    $written++;
+                }
+
+                if ($limit > 0 && $written >= $limit) {
+                    return false;
+                }
+            }, 'products.id', 'id');
+
+            $totalSize = 0;
+            $allVerified = true;
+            for ($i = 1; $i <= $shardCount; $i++) {
+                fwrite($handles[$i], "</channel>\n");
+                fwrite($handles[$i], "</rss>\n");
+                fclose($handles[$i]);
+                rename($tempPaths[$i], $finalPaths[$i]);
+
+                clearstatcache(true, $finalPaths[$i]);
+                $exists = file_exists($finalPaths[$i]);
+                $size = $exists ? filesize($finalPaths[$i]) : 0;
+                if (!$exists || $size <= 150) {
+                    $allVerified = false;
+                }
+                $totalSize += $size;
+            }
+
+            $duration = (int) round(microtime(true) - $start);
+
+            $run->update([
+                'status' => $allVerified ? 'success' : 'failed',
+                'finished_at' => now(),
+                'duration_seconds' => $duration,
+                'records_written' => $written,
+                'file_path' => $def['pathTemplate'],
+                'file_url' => url(str_replace('{n}', '1', $def['pathTemplate'])),
+                'file_verified' => $allVerified,
+                'file_size_bytes' => $totalSize,
+                'shard_count' => $shardCount,
+                'min_price_filter' => $minPriceInput,
+                'error_message' => $allVerified ? null : 'One or more shard files missing or unexpectedly small after write.',
+            ]);
+
+            $this->info("[{$label}] {$written} products written across {$shardCount} files, verified=" . ($allVerified ? 'yes' : 'NO') . ", {$duration}s");
+            Log::info('feed:daily-regional sharded file generated', [
+                'file_key' => $key,
+                'batch_id' => $batchId,
+                'written' => $written,
+                'shard_count' => $shardCount,
+                'verified' => $allVerified,
+                'duration_seconds' => $duration,
+            ]);
+        } catch (\Throwable $e) {
+            foreach ($handles as $fp) {
+                if (is_resource($fp)) {
+                    fclose($fp);
+                }
+            }
+            foreach ($tempPaths as $tempPath) {
+                if (file_exists($tempPath)) {
+                    @unlink($tempPath);
+                }
+            }
+
+            $duration = (int) round(microtime(true) - $start);
+            $run->update([
+                'status' => 'failed',
+                'finished_at' => now(),
+                'duration_seconds' => $duration,
+                'error_message' => $e->getMessage(),
+            ]);
+
+            $this->error("[{$label}] failed: {$e->getMessage()}");
+            Log::error('feed:daily-regional sharded file failed', [
                 'file_key' => $key,
                 'batch_id' => $batchId,
                 'error' => $e->getMessage(),

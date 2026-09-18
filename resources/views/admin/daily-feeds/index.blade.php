@@ -58,15 +58,33 @@
                             <span class="badge bg-light text-dark border">Never run</span>
                         @endif
                     </div>
-                    <a href="{{ url($meta['path']) }}" target="_blank" rel="noopener" class="d-block text-truncate small mb-2">
-                        <i class="bi bi-link-45deg"></i> {{ url($meta['path']) }}
-                    </a>
+                    @if(in_array($key, $shardedKeys, true))
+                        @php
+                            $shardCount = (int) ($run->shard_count ?? ($settings["{$key}_shard_count"] ?? 20));
+                        @endphp
+                        <details class="mb-2">
+                            <summary class="small">
+                                <i class="bi bi-link-45deg"></i> {{ $shardCount }} files (registered once in Merchant Center — URLs never change)
+                            </summary>
+                            <div style="max-height:180px; overflow-y:auto;" class="mt-1">
+                                @for($i = 1; $i <= $shardCount; $i++)
+                                    <a href="{{ url(str_replace('{n}', $i, $pathTemplates[$key])) }}" target="_blank" rel="noopener" class="d-block text-truncate small">
+                                        {{ url(str_replace('{n}', $i, $pathTemplates[$key])) }}
+                                    </a>
+                                @endfor
+                            </div>
+                        </details>
+                    @else
+                        <a href="{{ url($meta['path']) }}" target="_blank" rel="noopener" class="d-block text-truncate small mb-2">
+                            <i class="bi bi-link-45deg"></i> {{ url($meta['path']) }}
+                        </a>
+                    @endif
                     @if($run)
                         <div class="small text-muted">
-                            <div>Records: <strong>{{ $run->records_written ?? '—' }}</strong></div>
+                            <div>Records: <strong>{{ $run->records_written ?? '—' }}</strong>{{ $run->shard_count ? ' across '.$run->shard_count.' files' : '' }}</div>
                             <div>Last run: {{ $run->finished_at ?? $run->started_at }}</div>
                             <div>Duration: {{ $run->duration_seconds !== null ? $run->duration_seconds.'s' : '—' }}</div>
-                            <div>File verified: {{ $run->file_verified ? 'Yes' : 'No' }}</div>
+                            <div>Files verified: {{ $run->file_verified ? 'Yes' : 'No' }}</div>
                             @if($run->error_message)
                                 <div class="text-danger">{{ $run->error_message }}</div>
                             @endif
@@ -114,6 +132,14 @@
                                     <input type="number" step="1" min="0" class="form-control form-control-sm"
                                            name="{{ $key }}_limit" value="{{ $settings["{$key}_limit"] ?? 0 }}">
                                 </div>
+                                @if(in_array($key, $shardedKeys, true))
+                                    <div class="col-12">
+                                        <label class="form-label small mb-1">Split into how many files</label>
+                                        <input type="number" step="1" min="1" max="200" class="form-control form-control-sm"
+                                               name="{{ $key }}_shard_count" value="{{ $settings["{$key}_shard_count"] ?? 20 }}">
+                                        <div class="form-text">Keep this fixed once you've registered the URLs in Merchant Center — changing it changes the URL list.</div>
+                                    </div>
+                                @endif
                             </div>
                         </div>
                     </div>
@@ -139,6 +165,7 @@
                         <th>Feed</th>
                         <th>Status</th>
                         <th>Records</th>
+                        <th>Files</th>
                         <th>Duration</th>
                         <th>Verified</th>
                         <th>Started</th>
@@ -162,6 +189,7 @@
                                 @endif
                             </td>
                             <td>{{ $run->records_written ?? '—' }}</td>
+                            <td>{{ $run->shard_count ?? 1 }}</td>
                             <td>{{ $run->duration_seconds !== null ? $run->duration_seconds.'s' : '—' }}</td>
                             <td>{{ $run->file_verified ? 'Yes' : 'No' }}</td>
                             <td class="small text-muted">{{ $run->started_at }}</td>
@@ -169,7 +197,7 @@
                             <td class="small text-danger">{{ $run->error_message }}</td>
                         </tr>
                     @empty
-                        <tr><td colspan="8" class="text-center text-muted py-4">No runs yet.</td></tr>
+                        <tr><td colspan="9" class="text-center text-muted py-4">No runs yet.</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -222,7 +250,7 @@ function pollStatus(url, btn, statusTitle, statusList) {
                     else if (run.status === 'failed') badge = 'danger';
                     else if (run.status === 'running') badge = 'warning';
                     let extra = run.status === 'success'
-                        ? `${run.records_written ?? 0} records in ${run.duration_seconds ?? '?'}s`
+                        ? `${run.records_written ?? 0} records${run.shard_count ? ' across ' + run.shard_count + ' files' : ''} in ${run.duration_seconds ?? '?'}s`
                         : (run.error_message || '');
                     return `<li><span class="badge bg-${badge}">${text}</span> ${run.label}: ${extra}</li>`;
                 }).join('');

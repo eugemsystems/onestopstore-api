@@ -12,6 +12,17 @@ class AdminDailyFeedController extends BaseAdminController
 
     private const FILE_KEYS = ['global_usd', 'global_zmw', 'zimbabwe_usd', 'zambia_zmw'];
 
+    // The two Global feeds are split into a fixed number of files (see
+    // GenerateDailyRegionalFeeds::generateShardedFile) so a single ~800MB
+    // file doesn't get cut off mid-transfer to Google. Zimbabwe/Zambia stay
+    // single-file — small enough to never need this.
+    private const SHARDED_KEYS = ['global_usd', 'global_zmw'];
+
+    private const PATH_TEMPLATES = [
+        'global_usd' => 'dailyfeeds/global/usd/global-usd-{n}.xml',
+        'global_zmw' => 'dailyfeeds/global/zmw/global-zmw-{n}.xml',
+    ];
+
     public function index()
     {
         $this->checkPermission('index');
@@ -25,6 +36,8 @@ class AdminDailyFeedController extends BaseAdminController
             'latestRuns' => $latestRuns,
             'history' => $history,
             'fileLabels' => DailyFeedRun::LABELS,
+            'shardedKeys' => self::SHARDED_KEYS,
+            'pathTemplates' => self::PATH_TEMPLATES,
         ]);
     }
 
@@ -37,9 +50,11 @@ class AdminDailyFeedController extends BaseAdminController
             'global_usd_enabled' => ['nullable'],
             'global_usd_min_price' => ['required', 'numeric', 'min:0'],
             'global_usd_limit' => ['required', 'integer', 'min:0'],
+            'global_usd_shard_count' => ['required', 'integer', 'min:1', 'max:200'],
             'global_zmw_enabled' => ['nullable'],
             'global_zmw_min_price' => ['required', 'numeric', 'min:0'],
             'global_zmw_limit' => ['required', 'integer', 'min:0'],
+            'global_zmw_shard_count' => ['required', 'integer', 'min:1', 'max:200'],
             'zimbabwe_usd_enabled' => ['nullable'],
             'zimbabwe_usd_min_price' => ['required', 'numeric', 'min:0'],
             'zimbabwe_usd_limit' => ['required', 'integer', 'min:0'],
@@ -54,6 +69,9 @@ class AdminDailyFeedController extends BaseAdminController
             DailyFeedSetting::set("{$key}_enabled", $request->has("{$key}_enabled") ? '1' : '0');
             DailyFeedSetting::set("{$key}_min_price", (string) $validated["{$key}_min_price"]);
             DailyFeedSetting::set("{$key}_limit", (string) $validated["{$key}_limit"]);
+            if (in_array($key, self::SHARDED_KEYS, true)) {
+                DailyFeedSetting::set("{$key}_shard_count", (string) $validated["{$key}_shard_count"]);
+            }
         }
 
         return redirect()->route('admin.daily-feeds.index')->with('success', 'Daily feed settings saved.');
@@ -125,6 +143,7 @@ class AdminDailyFeedController extends BaseAdminController
                 'file_url' => $run->file_url,
                 'file_verified' => $run->file_verified,
                 'file_size_bytes' => $run->file_size_bytes,
+                'shard_count' => $run->shard_count,
                 'error_message' => $run->error_message,
             ]),
             'expected_count' => count(self::FILE_KEYS),
