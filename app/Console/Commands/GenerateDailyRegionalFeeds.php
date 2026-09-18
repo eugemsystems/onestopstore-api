@@ -30,8 +30,9 @@ use App\Services\CurrencyDetectionService;
  *
  * "Global" feeds include every eligible product regardless of the
  * zambia_only/zimbabwe_only/sa_only region flags (broadest reach). The
- * Zimbabwe and Zambia feeds only include products actually purchasable in
- * that market, same rule the existing feed:google-merchant command uses.
+ * Zimbabwe and Zambia feeds are strictly filtered to products explicitly
+ * flagged zimbabwe_only / zambia_only respectively (region-exclusive
+ * listings only, not "everything not excluded from that market").
  *
  * Large catalogs (into the millions) are handled via chunked cursor reads
  * straight into a streamed file write — nothing is held in memory — so a
@@ -194,13 +195,11 @@ class GenerateDailyRegionalFeeds extends Command
             }
 
             if ($def['region'] === 'zimbabwe') {
-                // Only products actually purchasable from Zimbabwe.
-                $query->whereRaw('COALESCE(products.zambia_only, false) = false')
-                      ->whereRaw('COALESCE(products.sa_only, false) = false');
+                // Only products explicitly flagged Zimbabwe-exclusive.
+                $query->where('products.zimbabwe_only', true);
             } elseif ($def['region'] === 'zambia') {
-                // Only products actually purchasable from Zambia.
-                $query->whereRaw('COALESCE(products.zimbabwe_only, false) = false')
-                      ->whereRaw('COALESCE(products.sa_only, false) = false');
+                // Only products explicitly flagged Zambia-exclusive.
+                $query->where('products.zambia_only', true);
             }
             // Global (region === null): no region restriction — broadest reach.
 
