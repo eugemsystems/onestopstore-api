@@ -290,12 +290,19 @@ class GenerateDailyRegionalFeeds extends Command
     private function writeItem($fp, object $product, string $currency): void
     {
         $title = $this->cleanXml($product->name);
-        $description = $this->cleanXml(
-            strip_tags($product->short_description ?: $product->description ?: $product->name)
+        // Decode entities (e.g. literal "&nbsp;" surviving strip_tags) and
+        // truncate the RAW text first, then escape. Escaping before
+        // truncating can slice a multi-character entity in half (e.g.
+        // "&amp;" -> "&am"), producing an unterminated entity reference
+        // that fails XML parsing ("EntityRef: expecting ';'").
+        $description = html_entity_decode(
+            strip_tags($product->short_description ?: $product->description ?: $product->name),
+            ENT_QUOTES | ENT_HTML5
         );
         if (strlen($description) > 5000) {
             $description = substr($description, 0, 4997) . '...';
         }
+        $description = $this->cleanXml($description);
 
         $link = $currency === 'ZMW'
             ? "{$this->zmFrontendUrl}/product/{$product->slug}"
