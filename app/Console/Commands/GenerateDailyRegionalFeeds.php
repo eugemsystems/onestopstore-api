@@ -6,19 +6,27 @@ use App\Models\Currency;
 use App\Models\DailyFeedRun;
 use App\Models\DailyFeedSetting;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Services\CurrencyDetectionService;
 
 /**
- * Generates the 4 daily regional Google Merchant feeds and writes them as
- * static files directly under public/ so they're served instantly by the
- * webserver (no PHP involved on read) at a URL that never changes:
+ * Generates the 4 daily regional Google Merchant feeds and writes them to
+ * storage/app/public/dailyfeeds/... (the 'public' disk — same place
+ * feed:google-merchant and sitemaps:generate already write to), streamed
+ * back out through a Laravel route rather than served as a raw static file
+ * by nginx directly. In this deployment nginx and the laravel-api container
+ * don't share a filesystem for anything written to public/ at runtime — the
+ * existing /api/sitemaps/{path} route (see routes/api.php) exists for
+ * exactly this reason, and public/dailyfeeds files 404'd at the webserver
+ * before ever reaching PHP until this was changed to match that pattern.
+ * URLs never change:
  *
- *   public/dailyfeeds/global/usd/global-usd.xml     -> {APP_URL}/dailyfeeds/global/usd/global-usd.xml
- *   public/dailyfeeds/global/zmw/global-zmw.xml      -> {APP_URL}/dailyfeeds/global/zmw/global-zmw.xml
- *   public/dailyfeeds/zimbabwe/zimbabwe.xml          -> {APP_URL}/dailyfeeds/zimbabwe/zimbabwe.xml
- *   public/dailyfeeds/zambia/zambia.xml              -> {APP_URL}/dailyfeeds/zambia/zambia.xml
+ *   {APP_URL}/dailyfeeds/global/usd/global-usd.xml
+ *   {APP_URL}/dailyfeeds/global/zmw/global-zmw.xml
+ *   {APP_URL}/dailyfeeds/zimbabwe/zimbabwe.xml
+ *   {APP_URL}/dailyfeeds/zambia/zambia.xml
  *
  * "Global" feeds include every eligible product regardless of the
  * zambia_only/zimbabwe_only/sa_only region flags (broadest reach). The
@@ -76,16 +84,12 @@ class GenerateDailyRegionalFeeds extends Command
         $label = DailyFeedRun::LABELS[$key] ?? $key;
         $enabled = DailyFeedSetting::get("{$key}_enabled", '1') == '1';
 
-        $run = DailyFeedRun::create([
-            'file_key' => $key,
-            'batch_id' => $batchId,
-            'status' => 'running',
-            'started_at' => now(),
-        ]);
-
         if (!$enabled) {
-            $run->update([
+            DailyFeedRun::create([
+                'file_key' => $key,
+                'batch_id' => $batchId,
                 'status' => 'skipped',
+                'started_at' => now(),
                 'finished_at' => now(),
                 'duration_seconds' => 0,
                 'error_message' => 'Feed disabled in Daily Feed settings.',
@@ -93,6 +97,38 @@ class GenerateDailyRegionalFeeds extends Command
             $this->line("[{$label}] skipped (disabled).");
             return;
         }
+
+        // Guards against two invocations of the same file running at once —
+        // e.g. the 4 AM scheduled run firing while an earlier "Run Now" click
+        // is still mid-generation. withoutOverlapping() on the scheduler
+        // entry only protects scheduler ticks against each other; it does
+        // nothing for Run Now, which shells out directly and bypasses the
+        // scheduler's own lock. Without this, two processes can both open
+        // and rename the same .tmp file, producing
+        // "rename(...): No such file or directory" when one process moves
+        // the temp file out from under the other mid-write.
+        $lock = Cache::lock("feed:daily-regional:lock:{$key}", 10800); // 3h safety ceiling
+        if (!$lock->get()) {
+            DailyFeedRun::create([
+                'file_key' => $key,
+                'batch_id' => $batchId,
+                'status' => 'skipped',
+                'started_at' => now(),
+                'finished_at' => now(),
+                'duration_seconds' => 0,
+                'error_message' => 'Another run for this file was already in progress — skipped to avoid a race on the output file.',
+            ]);
+            $this->warn("[{$label}] skipped — another run for this file is already in progress.");
+            Log::warning('feed:daily-regional skipped: already running', ['file_key' => $key, 'batch_id' => $batchId]);
+            return;
+        }
+
+        $run = DailyFeedRun::create([
+            'file_key' => $key,
+            'batch_id' => $batchId,
+            'status' => 'running',
+            'started_at' => now(),
+        ]);
 
         $start = microtime(true);
 
@@ -104,7 +140,12 @@ class GenerateDailyRegionalFeeds extends Command
             $minPriceUsd = $this->convertToUsd($minPriceInput, $currency);
 
             $relativePath = $def['path'];
-            $finalPath = public_path($relativePath);
+            // storage/app/public (the 'public' disk), not public_path() — nginx
+            // doesn't reliably see files written to public/ at runtime here (see
+            // class docblock), so these are streamed back out via a Laravel
+            // route (routes/web.php) reading from this same disk, same as the
+            // existing /api/sitemaps/{path} route already does.
+            $finalPath = storage_path('app/public/' . $relativePath);
             $tempPath = $finalPath . '.tmp';
 
             if (!is_dir(dirname($finalPath))) {
@@ -164,7 +205,12 @@ class GenerateDailyRegionalFeeds extends Command
             // Global (region === null): no region restriction — broadest reach.
 
             $written = 0;
-            $query->orderBy('products.id')->chunk(1000, function ($products) use ($fp, $currency, $limit, &$written) {
+            // chunkById (keyset pagination: WHERE products.id > lastId) instead of
+            // chunk (OFFSET/LIMIT) — with a catalog in the millions, OFFSET-based
+            // paging makes every successive page rescan-and-discard everything
+            // before it, so total cost grows quadratically with table size and a
+            // run can take hours without ever failing. chunkById stays O(n).
+            $query->chunkById(1000, function ($products) use ($fp, $currency, $limit, &$written) {
                 foreach ($products as $product) {
                     if ($limit > 0 && $written >= $limit) {
                         return false;
@@ -177,7 +223,7 @@ class GenerateDailyRegionalFeeds extends Command
                 if ($limit > 0 && $written >= $limit) {
                     return false;
                 }
-            });
+            }, 'products.id', 'id');
 
             fwrite($fp, "</channel>\n");
             fwrite($fp, "</rss>\n");
@@ -237,6 +283,8 @@ class GenerateDailyRegionalFeeds extends Command
                 'batch_id' => $batchId,
                 'error' => $e->getMessage(),
             ]);
+        } finally {
+            $lock->release();
         }
     }
 
