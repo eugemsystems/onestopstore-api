@@ -206,7 +206,6 @@ class PayFast
             $amountZar = Helpers::convertToZAR($payable);
 
             $params = [
-                'return_url' => $request->return_url.'/'.$order->order_number,
                 'name_first' => $order->consumer->name,
                 'email_address' => $order->consumer->email,
                 'amount' => $amountZar,
@@ -222,6 +221,18 @@ class PayFast
                 'custom_str3' => 'Customer ID',
                 'custom_str4' => 'Exchange Rate:'.Helpers::getCurrencyExchangeRate('ZAR'),
             ];
+
+            // Only override the vendor package's configured return_url
+            // (config('payfast.return_url'), a full working URL set in .env)
+            // when the caller actually supplied one. Previously this always
+            // set 'return_url' => $request->return_url.'/'.$order->order_number
+            // even when $request->return_url was empty, producing a bare
+            // "/1018"-style value that PayFast rejected as an invalid return
+            // URL -- and because it's an explicit array key, it clobbered the
+            // package's own sane default via array_merge($defaults, $data).
+            if (!empty($request->return_url)) {
+                $params['return_url'] = rtrim($request->return_url, '/').'/'.$order->order_number;
+            }
 
             return [
                 'order_number'=> $order->order_number,
