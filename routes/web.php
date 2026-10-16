@@ -156,6 +156,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
         // Staff performance (leaderboard + per-staff order audit; admin only)
         Route::get('/staff-performance', [\App\Http\Controllers\Admin\AdminStaffPerformanceController::class, 'index'])->name('staff-performance.index');
+        Route::get('/staff-performance/unclaimed', [\App\Http\Controllers\Admin\AdminStaffPerformanceController::class, 'unclaimed'])->name('staff-performance.unclaimed');
+        Route::post('/staff-performance/assign', [\App\Http\Controllers\Admin\AdminStaffPerformanceController::class, 'assign'])->name('staff-performance.assign');
+        Route::post('/staff-performance/unassign', [\App\Http\Controllers\Admin\AdminStaffPerformanceController::class, 'unassign'])->name('staff-performance.unassign');
         Route::get('/staff-performance/{user}', [\App\Http\Controllers\Admin\AdminStaffPerformanceController::class, 'show'])->whereNumber('user')->name('staff-performance.show');
 
         // Profile

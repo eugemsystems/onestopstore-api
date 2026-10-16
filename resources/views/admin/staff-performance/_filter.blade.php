@@ -3,6 +3,7 @@
     <span class="sp-lbl">View by:</span>
     <label class="sp-radio"><input type="radio" name="period" value="month" {{ $period === 'month' ? 'checked' : '' }} onchange="spToggle()"> Month</label>
     <label class="sp-radio"><input type="radio" name="period" value="year" {{ $period === 'year' ? 'checked' : '' }} onchange="spToggle()"> Year</label>
+    <label class="sp-radio"><input type="radio" name="period" value="range" {{ $period === 'range' ? 'checked' : '' }} onchange="spToggle()"> Dates</label>
 
     <input type="month" name="month" id="sp-month" value="{{ $month }}" max="{{ now()->format('Y-m') }}">
     <select name="year" id="sp-year">
@@ -10,14 +11,20 @@
             <option value="{{ $y }}" {{ (int) $year === $y ? 'selected' : '' }}>{{ $y }}</option>
         @endfor
     </select>
+    <span id="sp-range" style="display:none;align-items:center;gap:6px;">
+        <input type="date" name="date_from" value="{{ $from->format('Y-m-d') }}" max="{{ now()->format('Y-m-d') }}">
+        <span style="color:#94a3b8;">→</span>
+        <input type="date" name="date_to" value="{{ $to->format('Y-m-d') }}" max="{{ now()->format('Y-m-d') }}">
+    </span>
     <button type="submit" class="sp-btn">Apply</button>
     <span class="sp-current">Showing: <strong>{{ $label }}</strong></span>
 </form>
 <script>
 function spToggle() {
-    var yr = document.querySelector('.sp-filter input[name=period]:checked').value === 'year';
-    document.getElementById('sp-month').style.display = yr ? 'none' : '';
-    document.getElementById('sp-year').style.display  = yr ? '' : 'none';
+    var p = document.querySelector('.sp-filter input[name=period]:checked').value;
+    document.getElementById('sp-month').style.display = p === 'month' ? '' : 'none';
+    document.getElementById('sp-year').style.display  = p === 'year' ? '' : 'none';
+    document.getElementById('sp-range').style.display = p === 'range' ? 'flex' : 'none';
 }
 spToggle();
 </script>

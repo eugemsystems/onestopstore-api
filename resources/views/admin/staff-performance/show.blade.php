@@ -7,11 +7,12 @@
 @endpush
 
 @section('content')
+@if(session('success'))<div style="background:#f0fdf4;color:#166534;border-radius:10px;padding:10px 16px;margin-bottom:14px;font-size:.85rem;">{{ session('success') }}</div>@endif
 @php $maxUsd = max(1, (float) $trend->max('usd')); @endphp
 
 <div class="sp-hero">
     <div>
-        <a href="{{ route('admin.staff-performance.index', ['period' => $period, 'month' => $month, 'year' => $year]) }}" style="color:rgba(255,255,255,.8);font-size:.75rem;text-decoration:none;">← All staff</a>
+        <a href="{{ route('admin.staff-performance.index', request()->only('period','month','year','date_from','date_to')) }}" style="color:rgba(255,255,255,.8);font-size:.75rem;text-decoration:none;">← All staff</a>
         <h2 style="margin-top:4px;">{{ $user->name }}</h2>
         <p>{{ $user->email }} — order audit for {{ $label }}</p>
     </div>
@@ -113,6 +114,12 @@
                     </td>
                     <td>
                         @forelse($o->flags as $f)<span class="pill warn">{{ $f }}</span>@empty<span style="color:#cbd5e1;">—</span>@endforelse
+                        @if($o->staff_credit_id && auth()->user()->can('staff-performance.assign'))
+                            <form method="POST" action="{{ route('admin.staff-performance.unassign') }}" onsubmit="return confirm('Remove the manual credit from this order?')" style="margin-top:4px;">
+                                @csrf <input type="hidden" name="order_id" value="{{ $o->id }}">
+                                <button type="submit" class="sp-link" style="background:none;border:0;padding:0;color:#dc2626;cursor:pointer;">Remove manual credit</button>
+                            </form>
+                        @endif
                         @foreach($o->edits as $e)
                             <div style="font-size:.66rem;color:#dc2626;margin-top:3px;">
                                 {{ \Carbon\Carbon::parse($e['at'])->format('d M H:i') }} {{ $e['by'] }}: {{ $e['description'] }}

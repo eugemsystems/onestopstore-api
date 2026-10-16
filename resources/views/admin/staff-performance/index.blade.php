@@ -20,6 +20,14 @@
 
 @include('admin.staff-performance._filter', ['action' => route('admin.staff-performance.index')])
 
+@if($unclaimed->cnt > 0)
+<a href="{{ route('admin.staff-performance.unclaimed', request()->only('period','month','year','date_from','date_to')) }}"
+   style="display:flex;align-items:center;justify-content:space-between;gap:12px;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:12px;padding:12px 18px;margin-bottom:18px;text-decoration:none;font-size:.85rem;">
+    <span><i class="bi bi-inbox-fill me-2"></i><b>{{ number_format($unclaimed->cnt) }} paid orders ({{ '$' . number_format($unclaimed->usd, 2) }})</b> are not credited to any staff member for {{ $label }}.</span>
+    <span style="font-weight:700;">Review &amp; assign →</span>
+</a>
+@endif
+
 <div class="sp-card">
     <div style="overflow-x:auto;">
         <table class="sp-table">
@@ -40,7 +48,7 @@
             </thead>
             <tbody>
                 @forelse($staff as $i => $s)
-                @php $url = route('admin.staff-performance.show', array_merge(['user' => $s['id']], request()->only('period','month','year'))); @endphp
+                @php $url = route('admin.staff-performance.show', array_merge(['user' => $s['id']], request()->only('period','month','year','date_from','date_to'))); @endphp
                 <tr onclick="window.location='{{ $url }}'" style="cursor:pointer;">
                     <td>
                         @if($i < 3 && $s['usd_total'] > 0)

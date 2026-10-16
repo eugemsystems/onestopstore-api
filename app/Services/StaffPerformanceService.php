@@ -48,13 +48,13 @@ class StaffPerformanceService
 
     /**
      * Resolve the period filter. Only calendar months or whole years are allowed
-     * (period=month&month=YYYY-MM, or period=year&year=YYYY). Defaults to the current month.
+     * (period=month&month=YYYY-MM, period=year&year=YYYY, or period=range&date_from&date_to). Defaults to the current month.
      *
      * @return array{0:string,1:Carbon,2:Carbon,3:string,4:string,5:int} period, from, to, label, month(YYYY-MM), year
      */
     public static function resolvePeriod(Request $request): array
     {
-        $period = $request->input('period') === 'year' ? 'year' : 'month';
+        $period = in_array($request->input('period'), ['year', 'range'], true) ? $request->input('period') : 'month';
 
         try {
             $month = Carbon::createFromFormat('!Y-m', (string) $request->input('month', now()->format('Y-m')));
@@ -66,7 +66,19 @@ class StaffPerformanceService
             $year = (int) now()->year;
         }
 
-        if ($period === 'year') {
+        if ($period === 'range') {
+            try {
+                $from = Carbon::parse($request->input('date_from', now()->startOfMonth()->toDateString()))->startOfDay();
+                $to = Carbon::parse($request->input('date_to', now()->toDateString()))->endOfDay();
+            } catch (\Throwable) {
+                $from = now()->startOfMonth();
+                $to = now()->endOfDay();
+            }
+            if ($from->gt($to)) {
+                [$from, $to] = [$to->copy()->startOfDay(), $from->copy()->endOfDay()];
+            }
+            $label = $from->format('d M Y') . ' – ' . $to->format('d M Y');
+        } elseif ($period === 'year') {
             $from = Carbon::create($year, 1, 1)->startOfDay();
             $to = Carbon::create($year, 12, 31)->endOfDay();
             $label = (string) $year;
@@ -88,48 +100,69 @@ class StaffPerformanceService
             ->whereNull('deleted_at')->select('id', 'name', 'email')->orderBy('name')->get();
     }
 
-    /** Paid, non-cancelled, top-level orders credited to $userId within the window. */
-    public function attributedOrders(int $userId, ?Carbon $from, Carbon $to)
+    /**
+     * WHERE-group: the order is credited to one of $userIds. Precedence:
+     *  (manual) staff_credit_id set by an admin -> that user only;
+     *  (a) first payment-confirming status change was made by the user;
+     *  (b) legacy invoice/quotation conversion (no history row) -> converter (created_by_id).
+     */
+    private function creditClause(array $userIds): \Closure
     {
         $nonRev = $this->nonRevenueStatusIds;
+        $ids = array_map('intval', $userIds) ?: [0];
+        $nonRevSql = !empty($nonRev) ? 'AND %s.new_status_id NOT IN (' . implode(',', array_map('intval', $nonRev)) . ')' : '';
+        $idList = implode(',', $ids);
 
-        $humanHistory = fn ($s) => $s->select(DB::raw(1))
-            ->from('order_status_histories as hh')
-            ->whereColumn('hh.order_id', 'orders.id')
-            ->whereNotNull('hh.updated_by_id')->where('hh.updated_by_id', '!=', 0)
-            ->when(!empty($nonRev), fn ($x) => $x->whereNotIn('hh.new_status_id', $nonRev));
+        return function ($q) use ($idList, $nonRevSql) {
+            $q->whereRaw("COALESCE(orders.staff_credit_id, 0) IN ({$idList})")
+              ->orWhere(function ($auto) use ($idList, $nonRevSql) {
+                  $auto->whereNull('orders.staff_credit_id')->where(function ($x) use ($idList, $nonRevSql) {
+                      $x->whereRaw("EXISTS (
+                            SELECT 1 FROM order_status_histories h
+                            WHERE h.order_id = orders.id
+                              AND h.updated_by_id IN ({$idList})
+                              " . sprintf($nonRevSql, 'h') . "
+                              AND NOT EXISTS (
+                                SELECT 1 FROM order_status_histories h2
+                                WHERE h2.order_id = h.order_id AND h2.id < h.id
+                                  AND h2.updated_by_id IS NOT NULL AND h2.updated_by_id != 0
+                                  " . sprintf($nonRevSql, 'h2') . "
+                              )
+                        )")
+                      ->orWhereRaw("(COALESCE(orders.created_by_id, 0) IN ({$idList})
+                            AND COALESCE(orders.note, '') LIKE 'Created from %'
+                            AND NOT EXISTS (
+                                SELECT 1 FROM order_status_histories hh
+                                WHERE hh.order_id = orders.id AND hh.updated_by_id IS NOT NULL AND hh.updated_by_id != 0
+                                  " . sprintf($nonRevSql, 'hh') . "
+                            ))");
+                  });
+              });
+        };
+    }
 
+    /** Paid, non-cancelled, top-level orders (any staff), within the window. */
+    private function paidOrders(?Carbon $from, Carbon $to)
+    {
         return DB::table('orders')
-            ->where(function ($credit) use ($userId, $nonRev, $humanHistory) {
-            // (a) normal case: first payment-confirming status change was made by this user
-            $credit->whereExists(function ($sub) use ($userId, $nonRev) {
-                $sub->select(DB::raw(1))
-                    ->from('order_status_histories as h')
-                    ->whereColumn('h.order_id', 'orders.id')
-                    ->where('h.updated_by_id', $userId)
-                    ->when(!empty($nonRev), fn ($s) => $s->whereNotIn('h.new_status_id', $nonRev))
-                    ->whereRaw('NOT EXISTS (
-                        SELECT 1 FROM order_status_histories h2
-                        WHERE h2.order_id = h.order_id
-                          AND h2.id < h.id
-                          AND h2.updated_by_id IS NOT NULL
-                          AND h2.updated_by_id != 0
-                          ' . (!empty($nonRev) ? 'AND h2.new_status_id NOT IN (' . implode(',', array_map('intval', $nonRev)) . ')' : '') . '
-                    )');
-            })
-            // (b) invoice/quotation converted to an order before conversions recorded history:
-            //     credit the staff member who converted it (created_by_id).
-            ->orWhere(function ($legacy) use ($userId, $humanHistory) {
-                $legacy->where('orders.created_by_id', $userId)
-                    ->where('orders.note', 'like', 'Created from %')
-                    ->whereNotExists($humanHistory);
-            });
-            })
             ->whereRaw("UPPER(orders.payment_status) IN ('COMPLETED', 'COMPLETE', 'SUCCESS')")
             ->when(!empty($this->cancelledStatusIds), fn ($q) => $q->whereNotIn('orders.order_status_id', $this->cancelledStatusIds))
             ->whereNull('orders.parent_id')->whereNull('orders.deleted_at')
             ->when($from, fn ($q) => $q->where('orders.created_at', '>=', $from))
             ->where('orders.created_at', '<=', $to);
+    }
+
+    /** Paid orders credited to $userId within the window. */
+    public function attributedOrders(int $userId, ?Carbon $from, Carbon $to)
+    {
+        return $this->paidOrders($from, $to)->where($this->creditClause([$userId]));
+    }
+
+    /** Paid orders that no "Staff Raines" member is credited for (e.g. online orders nobody claimed). */
+    public function unclaimedOrders(?Carbon $from, Carbon $to)
+    {
+        $staffIds = $this->staffUsers()->pluck('id')->all();
+        return $this->paidOrders($from, $to)->whereNot($this->creditClause($staffIds));
     }
 
     /**
