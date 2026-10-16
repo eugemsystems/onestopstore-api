@@ -565,6 +565,8 @@ Route::prefix('backups')->name('backups.')->group(function () {
     Route::get('/', [\App\Http\Controllers\Admin\AdminBackupController::class, 'index'])->name('index');
     Route::post('/run', [\App\Http\Controllers\Admin\AdminBackupController::class, 'run'])->name('run');
     Route::post('/{target}/run', [\App\Http\Controllers\Admin\AdminBackupController::class, 'run'])->name('run.target');
+    Route::post('/{target}/bulk-delete-local', [\App\Http\Controllers\Admin\AdminBackupController::class, 'bulkDestroyLocal'])->name('bulk-destroy-local');
+    Route::post('/{target}/bulk-delete', [\App\Http\Controllers\Admin\AdminBackupController::class, 'bulkDestroy'])->name('bulk-destroy');
 
     // Local dumps (on this server, awaiting review)
     Route::get('/{target}/{filename}/download-local', [\App\Http\Controllers\Admin\AdminBackupController::class, 'downloadLocal'])->name('download-local');

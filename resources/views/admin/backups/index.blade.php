@@ -193,12 +193,22 @@
                             No local dumps yet — click "Dump Now" above.
                         </div>
                     @else
+                        @can('backups.delete')
+                        <form id="bulkLocal-{{ $key }}" action="{{ route('admin.backups.bulk-destroy-local', $key) }}" method="POST" class="d-flex align-items-center gap-2 mb-2 bulk-bar" data-noun="local dump(s)">
+                            @csrf
+                            <label class="small mb-0"><input type="checkbox" class="bulk-all" data-scope="local-{{ $key }}"> Select all</label>
+                            <button type="submit" class="btn btn-sm btn-danger bulk-btn" disabled><i class="bi bi-trash"></i> Delete selected (<span class="bulk-count">0</span>)</button>
+                        </form>
+                        @endcan
                         <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xl-4 g-3 mb-4">
                             @foreach($group['local'] as $backup)
                                 <div class="col">
                                     <div class="card border shadow-sm h-100 backup-file-card">
                                         <div class="card-body">
                                             <div class="d-flex align-items-start gap-2 mb-2">
+                                                @can('backups.delete')
+                                                <input type="checkbox" form="bulkLocal-{{ $key }}" name="filenames[]" value="{{ $backup['filename'] }}" class="bulk-cb mt-1" data-scope="local-{{ $key }}">
+                                                @endcan
                                                 <div class="backup-file-icon {{ $backup['uploaded'] ? 'uploaded' : '' }}">
                                                     <i class="bi {{ $backup['uploaded'] ? 'bi-cloud-check-fill' : 'bi-file-earmark-zip-fill' }}"></i>
                                                 </div>
@@ -258,12 +268,22 @@
                             {{ $r2Configured ? 'None uploaded yet.' : 'R2 not configured.' }}
                         </div>
                     @else
+                        @can('backups.delete')
+                        <form id="bulkRemote-{{ $key }}" action="{{ route('admin.backups.bulk-destroy', $key) }}" method="POST" class="d-flex align-items-center gap-2 mb-2 bulk-bar" data-noun="off-server backup(s)">
+                            @csrf
+                            <label class="small mb-0"><input type="checkbox" class="bulk-all" data-scope="remote-{{ $key }}"> Select all</label>
+                            <button type="submit" class="btn btn-sm btn-danger bulk-btn" disabled><i class="bi bi-trash"></i> Delete selected (<span class="bulk-count">0</span>)</button>
+                        </form>
+                        @endcan
                         <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xl-4 g-3">
                             @foreach($group['remote'] as $backup)
                                 <div class="col">
                                     <div class="card border shadow-sm h-100 backup-file-card">
                                         <div class="card-body">
                                             <div class="d-flex align-items-start gap-2 mb-2">
+                                                @can('backups.delete')
+                                                <input type="checkbox" form="bulkRemote-{{ $key }}" name="filenames[]" value="{{ $backup['filename'] }}" class="bulk-cb mt-1" data-scope="remote-{{ $key }}">
+                                                @endcan
                                                 <div class="backup-file-icon remote">
                                                     <i class="bi bi-cloud-fill"></i>
                                                 </div>
@@ -305,4 +325,36 @@
         </div>
     @endforeach
 </div>
+
+@push('scripts')
+<script>
+(function () {
+    function refresh(scope) {
+        var cbs = document.querySelectorAll('.bulk-cb[data-scope="' + scope + '"]');
+        var n = document.querySelectorAll('.bulk-cb[data-scope="' + scope + '"]:checked').length;
+        var all = document.querySelector('.bulk-all[data-scope="' + scope + '"]');
+        var bar = all ? all.closest('form') : null;
+        if (bar) {
+            bar.querySelector('.bulk-count').textContent = n;
+            bar.querySelector('.bulk-btn').disabled = n === 0;
+        }
+        if (all) all.checked = cbs.length > 0 && n === cbs.length;
+    }
+    document.addEventListener('change', function (e) {
+        var t = e.target;
+        if (t.classList.contains('bulk-cb')) refresh(t.dataset.scope);
+        if (t.classList.contains('bulk-all')) {
+            document.querySelectorAll('.bulk-cb[data-scope="' + t.dataset.scope + '"]').forEach(function (c) { c.checked = t.checked; });
+            refresh(t.dataset.scope);
+        }
+    });
+    document.querySelectorAll('.bulk-bar').forEach(function (f) {
+        f.addEventListener('submit', function (e) {
+            var n = f.querySelector('.bulk-count').textContent;
+            if (!confirm('Permanently delete ' + n + ' ' + f.dataset.noun + '? This cannot be undone.')) e.preventDefault();
+        });
+    });
+})();
+</script>
+@endpush
 @endsection

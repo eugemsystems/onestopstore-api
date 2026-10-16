@@ -119,9 +119,45 @@ class AdminBackupController extends BaseAdminController
     {
         $this->checkPermission('delete');
 
-        $service->deleteLocalBackup($target, $filename);
+        $result = $service->deleteLocalBackup($target, $filename);
 
-        return redirect()->route('admin.backups.index')->with('success', 'Local backup deleted.');
+        return redirect()->route('admin.backups.index')->with(
+            $result['ok'] ? 'success' : 'error',
+            $result['ok'] ? 'Local backup deleted.' : ('Delete failed: ' . $result['error'])
+        );
+    }
+
+    public function bulkDestroyLocal(Request $request, string $target, DatabaseBackupService $service)
+    {
+        $this->checkPermission('delete');
+        $data = $request->validate(['filenames' => 'required|array|min:1|max:500', 'filenames.*' => 'string']);
+
+        [$deleted, $errors] = $service->deleteLocalBackups($target, $data['filenames']);
+
+        return $this->bulkResponse($deleted, $errors, 'local dump');
+    }
+
+    public function bulkDestroy(Request $request, string $target, DatabaseBackupService $service)
+    {
+        $this->checkPermission('delete');
+        $data = $request->validate(['filenames' => 'required|array|min:1|max:500', 'filenames.*' => 'string']);
+
+        [$deleted, $errors] = $service->deleteBackups($target, $data['filenames']);
+
+        return $this->bulkResponse($deleted, $errors, 'off-server backup');
+    }
+
+    private function bulkResponse(int $deleted, array $errors, string $noun)
+    {
+        $redirect = redirect()->route('admin.backups.index');
+        if ($deleted) {
+            $redirect->with('success', "{$deleted} {$noun}(s) deleted.");
+        }
+        if ($errors) {
+            $redirect->with('error', count($errors) . " {$noun}(s) could not be deleted: " . reset($errors));
+        }
+
+        return $redirect;
     }
 
     public function download(string $target, string $filename, DatabaseBackupService $service)
@@ -137,8 +173,11 @@ class AdminBackupController extends BaseAdminController
     {
         $this->checkPermission('delete');
 
-        $service->deleteBackup($target, $filename);
+        $result = $service->deleteBackup($target, $filename);
 
-        return redirect()->route('admin.backups.index')->with('success', 'Off-server backup deleted.');
+        return redirect()->route('admin.backups.index')->with(
+            $result['ok'] ? 'success' : 'error',
+            $result['ok'] ? 'Off-server backup deleted.' : ('Delete failed: ' . $result['error'])
+        );
     }
 }

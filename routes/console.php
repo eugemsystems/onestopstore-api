@@ -32,6 +32,18 @@ Schedule::command(\App\Console\Commands\BackupDatabase::class)
         \Illuminate\Support\Facades\Log::critical('Scheduled database backup failed — see logs for db:backup');
     });
 
+// ── Weekly backup wipe (Sundays 03:00, after the 02:00 dump) ───────────────
+// Deletes every old local + R2 database dump, keeping only the newest file per
+// target, so stale DB backups (customer PII) are not hoarded.
+Schedule::command('db:backup-prune --keep=1')
+    ->name('db:backup-prune')
+    ->weeklyOn(0, '03:00')
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->onFailure(function () {
+        \Illuminate\Support\Facades\Log::critical('Scheduled backup prune failed — see logs for db:backup-prune');
+    });
+
 // ── Abandoned Cart Detection (runs daily at 2 AM)
 Schedule::command(\App\Console\Commands\DetectAbandonedCarts::class)
     ->name('analytics:detect-abandoned-carts')

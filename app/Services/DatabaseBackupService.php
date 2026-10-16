@@ -236,9 +236,40 @@ class DatabaseBackupService
             ->values();
     }
 
-    public function deleteLocalBackup(string $targetKey, string $filename): void
+    /**
+     * Delete one local dump and VERIFY it is really gone. The backups disks are
+     * configured with throw=false, so Storage::delete() silently returns false on
+     * permission errors (e.g. file owned by the queue-worker user) — the old code
+     * ignored that and reported success.
+     *
+     * @return array{ok: bool, error?: string}
+     */
+    public function deleteLocalBackup(string $targetKey, string $filename): array
     {
-        $this->localDisk()->delete($this->localPrefix($targetKey) . basename($filename));
+        if (!isset($this->targets()[$targetKey])) {
+            return ['ok' => false, 'error' => "Unknown backup target '{$targetKey}'."];
+        }
+
+        $path = $this->localBackupPath($targetKey, $filename);
+        if (!is_file($path)) {
+            return ['ok' => true]; // already gone
+        }
+
+        if (!@unlink($path)) {
+            clearstatcache(true, $path);
+            if (is_file($path)) {
+                $reason = error_get_last()['message'] ?? 'unknown error';
+                Log::error("Could not delete local backup {$path}", ['reason' => $reason]);
+
+                return ['ok' => false, 'error' => 'The file could not be removed from the server (' . $reason . '). Check that the web server user owns/can write to storage/app/backups.'];
+            }
+        }
+
+        clearstatcache(true, $path);
+
+        return is_file($path)
+            ? ['ok' => false, 'error' => 'The file is still present after the delete attempt.']
+            : ['ok' => true];
     }
 
     public function localBackupPath(string $targetKey, string $filename): string
@@ -371,9 +402,112 @@ class DatabaseBackupService
         return [$kept, count($toDelete)];
     }
 
-    public function deleteBackup(string $targetKey, string $filename): void
+    /**
+     * Delete one R2 object and verify it is gone. Talks to the S3 client directly so
+     * API/permission errors surface instead of being swallowed by throw=false.
+     *
+     * @return array{ok: bool, error?: string}
+     */
+    public function deleteBackup(string $targetKey, string $filename): array
     {
-        $this->remoteDisk()->delete($this->remotePrefix($targetKey) . basename($filename));
+        if (!isset($this->targets()[$targetKey])) {
+            return ['ok' => false, 'error' => "Unknown backup target '{$targetKey}'."];
+        }
+
+        $key = $this->remotePrefix($targetKey) . basename($filename);
+
+        try {
+            $client = $this->remoteDisk()->getClient();
+            $client->deleteObject(['Bucket' => $this->bucket(), 'Key' => $key]);
+
+            if ($client->doesObjectExist($this->bucket(), $key)) {
+                return ['ok' => false, 'error' => 'R2 accepted the request but the object still exists.'];
+            }
+
+            return ['ok' => true];
+        } catch (Throwable $e) {
+            Log::error("Could not delete R2 backup {$key}", ['error' => $e->getMessage()]);
+
+            return ['ok' => false, 'error' => 'R2 refused the delete: ' . $e->getMessage()];
+        }
+    }
+
+    /**
+     * Delete many local dumps; returns [deletedCount, [filename => error]].
+     */
+    public function deleteLocalBackups(string $targetKey, array $filenames): array
+    {
+        $deleted = 0;
+        $errors = [];
+        foreach (array_unique(array_map('basename', $filenames)) as $filename) {
+            $r = $this->deleteLocalBackup($targetKey, $filename);
+            $r['ok'] ? $deleted++ : $errors[$filename] = $r['error'] ?? 'failed';
+        }
+
+        return [$deleted, $errors];
+    }
+
+    /**
+     * Delete many R2 backups; returns [deletedCount, [filename => error]].
+     */
+    public function deleteBackups(string $targetKey, array $filenames): array
+    {
+        $deleted = 0;
+        $errors = [];
+        foreach (array_unique(array_map('basename', $filenames)) as $filename) {
+            $r = $this->deleteBackup($targetKey, $filename);
+            $r['ok'] ? $deleted++ : $errors[$filename] = $r['error'] ?? 'failed';
+        }
+
+        return [$deleted, $errors];
+    }
+
+    /**
+     * Weekly housekeeping: for every target keep only the newest $keep local dump and
+     * the newest $keep R2 backup, delete everything older. Never touches a target
+     * whose newest dump is empty (so a failed dump can't wipe the last good file).
+     *
+     * @return array<string, array{local_deleted: int, remote_deleted: int, errors: array}>
+     */
+    public function pruneToLatest(int $keep = 1): array
+    {
+        $keep = max(1, $keep);
+        $report = [];
+
+        foreach (array_keys($this->targets()) as $key) {
+            $row = ['local_deleted' => 0, 'remote_deleted' => 0, 'errors' => []];
+
+            // Local dumps (listLocalBackups also queries R2; fine, it is cached per call).
+            $disk = $this->localDisk();
+            if ($disk->exists($key)) {
+                $local = collect($disk->files($key))
+                    ->map(fn ($p) => ['filename' => basename($p), 'size' => $disk->size($p), 'at' => $disk->lastModified($p)])
+                    ->sortByDesc('at')->values();
+
+                if ($local->isNotEmpty() && $local->first()['size'] > 0) {
+                    $old = $local->slice($keep)->pluck('filename')->all();
+                    [$row['local_deleted'], $errs] = $this->deleteLocalBackups($key, $old);
+                    $row['errors'] += $errs;
+                }
+            }
+
+            if ($this->r2Configured()) {
+                try {
+                    $remote = $this->listBackups($key);
+                    if ($remote->isNotEmpty() && $remote->first()['size'] > 0) {
+                        $old = $remote->slice($keep)->pluck('filename')->all();
+                        [$row['remote_deleted'], $errs] = $this->deleteBackups($key, $old);
+                        $row['errors'] += $errs;
+                    }
+                } catch (Throwable $e) {
+                    $row['errors']['r2-list'] = $e->getMessage();
+                }
+            }
+
+            $report[$key] = $row;
+        }
+
+        return $report;
     }
 
     public function temporaryDownloadUrl(string $targetKey, string $filename, int $minutes = 15): string
