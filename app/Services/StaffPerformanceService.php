@@ -93,8 +93,16 @@ class StaffPerformanceService
     {
         $nonRev = $this->nonRevenueStatusIds;
 
+        $humanHistory = fn ($s) => $s->select(DB::raw(1))
+            ->from('order_status_histories as hh')
+            ->whereColumn('hh.order_id', 'orders.id')
+            ->whereNotNull('hh.updated_by_id')->where('hh.updated_by_id', '!=', 0)
+            ->when(!empty($nonRev), fn ($x) => $x->whereNotIn('hh.new_status_id', $nonRev));
+
         return DB::table('orders')
-            ->whereExists(function ($sub) use ($userId, $nonRev) {
+            ->where(function ($credit) use ($userId, $nonRev, $humanHistory) {
+            // (a) normal case: first payment-confirming status change was made by this user
+            $credit->whereExists(function ($sub) use ($userId, $nonRev) {
                 $sub->select(DB::raw(1))
                     ->from('order_status_histories as h')
                     ->whereColumn('h.order_id', 'orders.id')
@@ -109,7 +117,15 @@ class StaffPerformanceService
                           ' . (!empty($nonRev) ? 'AND h2.new_status_id NOT IN (' . implode(',', array_map('intval', $nonRev)) . ')' : '') . '
                     )');
             })
-            ->whereIn('orders.payment_status', self::PAID)
+            // (b) invoice/quotation converted to an order before conversions recorded history:
+            //     credit the staff member who converted it (created_by_id).
+            ->orWhere(function ($legacy) use ($userId, $humanHistory) {
+                $legacy->where('orders.created_by_id', $userId)
+                    ->where('orders.note', 'like', 'Created from %')
+                    ->whereNotExists($humanHistory);
+            });
+            })
+            ->whereRaw("UPPER(orders.payment_status) IN ('COMPLETED', 'COMPLETE', 'SUCCESS')")
             ->when(!empty($this->cancelledStatusIds), fn ($q) => $q->whereNotIn('orders.order_status_id', $this->cancelledStatusIds))
             ->whereNull('orders.parent_id')->whereNull('orders.deleted_at')
             ->when($from, fn ($q) => $q->where('orders.created_at', '>=', $from))
@@ -119,7 +135,12 @@ class StaffPerformanceService
     /** USD-equivalent expression: exchange_rate is "local units per 1 USD". */
     public static function usdExpr(string $prefix = 'orders'): string
     {
-        return "{$prefix}.total / COALESCE(NULLIF({$prefix}.exchange_rate, 0), 1)";
+        // Orders converted from invoices store exchange_rate = 1 regardless of currency,
+        // so fall back to the currency table's rate for those.
+        $rate = "CASE WHEN {$prefix}.note LIKE 'Created from %' AND COALESCE({$prefix}.exchange_rate, 1) = 1 "
+              . "THEN (SELECT NULLIF(cur.exchange_rate, 0) FROM currencies cur WHERE UPPER(cur.code) = UPPER({$prefix}.currency) LIMIT 1) "
+              . "ELSE {$prefix}.exchange_rate END";
+        return "{$prefix}.total / COALESCE(NULLIF({$rate}, 0), 1)";
     }
 
     public function currencySymbols(): Collection

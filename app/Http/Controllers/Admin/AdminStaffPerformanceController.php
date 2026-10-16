@@ -48,7 +48,7 @@ class AdminStaffPerformanceController extends Controller
             ->leftJoin('users as c', 'c.id', '=', 'orders.consumer_id')
             ->leftJoin('order_status as os', 'os.id', '=', 'orders.order_status_id')
             ->selectRaw('orders.id, orders.order_number, orders.total, orders.currency, orders.currency_symbol, orders.exchange_rate,
-                orders.payment_status, orders.payment_method, orders.created_at, orders.updated_at, orders.created_by_id,
+                orders.payment_status, orders.payment_method, orders.note, orders.created_at, orders.updated_at, orders.created_by_id,
                 (' . StaffPerformanceService::usdExpr() . ') as usd_total,
                 c.name as customer_name, c.email as customer_email, os.name as status_name')
             ->orderByDesc('orders.created_at')
@@ -89,6 +89,9 @@ class AdminStaffPerformanceController extends Controller
             }
             if ($o->created_by_id && (int) $o->created_by_id === (int) $user->id) {
                 $flags[] = 'Created by this staff member';
+            }
+            if (str_starts_with((string) $o->note, 'Created from ')) {
+                $flags[] = 'Converted from ' . trim(explode('#', substr($o->note, 13))[0]);
             }
             if ($credit && strtotime($credit->created_at) - strtotime($o->created_at) < 120) {
                 $flags[] = 'Confirmed <2 min after creation';

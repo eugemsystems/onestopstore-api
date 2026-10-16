@@ -1433,6 +1433,14 @@ class AdminInvoiceQuotationController extends Controller
             // This will trigger the observer and sync to CRM
             try {
                 $order->update(['order_status_id' => $processingStatus->id]);
+
+                // Record who confirmed the order so it is credited on the staff performance report
+                \App\Models\OrderStatusHistory::create([
+                    'order_id'      => $order->id,
+                    'old_status_id' => 1,
+                    'new_status_id' => $processingStatus->id,
+                    'updated_by_id' => Auth::id(),
+                ]);
             } catch (\Exception $e) {
                 Log::error('Failed to update order status to processing after invoice conversion', [
                     'order_id' => $order->id,
