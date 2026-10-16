@@ -348,104 +348,12 @@ class AdminAuthController extends Controller
         $applyDate($recentQuery);
         $recentOrders = $recentQuery->get();
 
-        // ── Staff performance (date-filtered; optional user filter) ────────────────
-        $staffUsers = \App\Models\User::whereHas('roles', fn($q) => $q->whereNotIn('name', ['consumer', 'vendor']))
-            ->whereNull('deleted_at')->select('id', 'name', 'email')->get();
-
-        $selectedStaffUser = $request->input('staff_user'); // null = not chosen, 'all' = everyone, ID = specific
-
-        if (is_null($selectedStaffUser)) {
-            // Not yet chosen — show nothing
-            $staffPerformance = collect();
-        } else {
-            // 'all' => show every staff user; numeric ID => show just that one
-            $usersToShow = ($selectedStaffUser === 'all')
-                ? $staffUsers
-                : $staffUsers->where('id', $selectedStaffUser);
-
-            $staffPerformance = $usersToShow->map(function ($user) use ($dateFrom, $dateTo, $cancelledStatusIds, $nonRevenueStatusIds) {
-
-                // ── Revenue attribution ───────────────────────────────────────────────
-                // An order's revenue is assigned to whoever made the FIRST status change
-                // that is NOT a delivery/logistics status and NOT a cancellation.
-                // Delivery changes (shipped, out for delivery, ready for collection,
-                // collected, delivered) do NOT attribute revenue — only payment-confirming
-                // changes (e.g. Processing) do.
-                //
-                // $nonRevenueStatusIds is computed once outside this loop.
-                $userOrderFilter = function ($q) use ($user, $nonRevenueStatusIds) {
-                    $q->whereExists(function ($sub) use ($user, $nonRevenueStatusIds) {
-                        $sub->select(\Illuminate\Support\Facades\DB::raw(1))
-                            ->from('order_status_histories as h')
-                            ->whereColumn('h.order_id', 'orders.id')
-                            ->where('h.updated_by_id', $user->id)
-                            ->when(!empty($nonRevenueStatusIds),
-                                fn($s) => $s->whereNotIn('h.new_status_id', $nonRevenueStatusIds))
-                            // This user's entry must be the EARLIEST non-revenue change
-                            // (no other human made a non-revenue change before this one).
-                            ->whereRaw('NOT EXISTS (
-                                SELECT 1 FROM order_status_histories h2
-                                WHERE h2.order_id = h.order_id
-                                  AND h2.id < h.id
-                                  AND h2.updated_by_id IS NOT NULL
-                                  AND h2.updated_by_id != 0
-                                  ' . (!empty($nonRevenueStatusIds)
-                                        ? 'AND h2.new_status_id NOT IN (' . implode(',', $nonRevenueStatusIds) . ')'
-                                        : '') . '
-                            )');
-                    });
-                };
-
-                $paidOrdersByStatus = \Illuminate\Support\Facades\DB::table('orders')
-                    ->join('order_status', 'orders.order_status_id', '=', 'order_status.id')
-                    ->tap($userOrderFilter)
-                    ->whereIn('orders.payment_status', ['COMPLETED','COMPLETE','SUCCESS'])
-                    ->when(!empty($cancelledStatusIds), fn($q) => $q->whereNotIn('orders.order_status_id', $cancelledStatusIds))
-                    ->whereNull('orders.parent_id')->whereNull('orders.deleted_at')
-                    ->when($dateFrom, fn($q) => $q->where('orders.created_at', '>=', $dateFrom))
-                    ->where('orders.created_at', '<=', $dateTo)
-                    ->selectRaw('order_status.name as status_name, count(*) as cnt, SUM(orders.total) as revenue')
-                    ->groupBy('order_status.name')->get()->keyBy('status_name');
-
-                $totalPaidOrders = $paidOrdersByStatus->sum('cnt');
-
-                $revenueByCurrencyForUser = \Illuminate\Support\Facades\DB::table('orders')
-                    ->tap($userOrderFilter)
-                    ->whereIn('payment_status', ['COMPLETED','COMPLETE','SUCCESS'])
-                    ->when(!empty($cancelledStatusIds), fn($q) => $q->whereNotIn('order_status_id', $cancelledStatusIds))
-                    ->whereNull('parent_id')->whereNull('deleted_at')
-                    ->when($dateFrom, fn($q) => $q->where('created_at', '>=', $dateFrom))
-                    ->where('created_at', '<=', $dateTo)
-                    ->selectRaw('currency, MIN(currency_symbol) as currency_symbol, SUM(total) as total_amount')
-                    ->groupBy('currency')->orderByDesc('total_amount')->get();
-
-                $docsRaw = \Illuminate\Support\Facades\DB::table('invoices_quotations')
-                    ->where('created_by', $user->id)->whereNull('deleted_at')
-                    ->when($dateFrom, fn($q) => $q->where('created_at', '>=', $dateFrom))
-                    ->where('created_at', '<=', $dateTo)
-                    ->selectRaw('document_type, count(*) as cnt')->groupBy('document_type')
-                    ->pluck('cnt', 'document_type');
-
-                return [
-                    'id'                  => $user->id,
-                    'name'                => $user->name,
-                    'email'               => $user->email,
-                    'total_paid_orders'   => $totalPaidOrders,
-                    'revenue_by_currency' => $revenueByCurrencyForUser,
-                    'orders_by_status'    => $paidOrdersByStatus,
-                    'quotations'          => $docsRaw->get('quotation', 0),
-                    'invoices'            => $docsRaw->get('invoice', 0),
-                    'proformas'           => $docsRaw->get('proforma', 0),
-                ];
-            })->sortByDesc('total_paid_orders')->values();
-        }
-
         return view('admin.dashboard', compact(
             'stats', 'recentOrders', 'isAdmin',
             'monthlyRevenue', 'monthlyOrders', 'monthLabels', 'monthlyRevenueByCurrency',
             'orderStatuses', 'topProducts', 'topProductsPaid', 'topProductsDemand', 'paymentMethods',
-            'staffPerformance', 'revenueByCurrency', 'thisMonthByCurrency',
-            'staffUsers', 'selectedStaffUser', 'range', 'dateFrom', 'dateTo'
+            'revenueByCurrency', 'thisMonthByCurrency',
+            'range', 'dateFrom', 'dateTo'
         ));
     }
 

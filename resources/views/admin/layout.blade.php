@@ -1155,7 +1155,7 @@
 
                         {{-- Analytics --}}
                         @if(auth()->check() && auth()->user()->hasRole('admin'))
-                        <div class="rail-item has-flyout {{ request()->routeIs('admin.analytics.*','admin.search-analytics.*','admin.ai-analytics.*','admin.marketing-feedback.*') ? 'rail-active' : '' }}">
+                        <div class="rail-item has-flyout {{ request()->routeIs('admin.analytics.*','admin.search-analytics.*','admin.ai-analytics.*','admin.marketing-feedback.*','admin.staff-performance.*') ? 'rail-active' : '' }}">
                             <div class="rail-link">
                                 <i class="bi bi-bar-chart-line-fill"></i>
                                 <span class="rail-label">Analytics</span>
@@ -1163,6 +1163,7 @@
                             <div class="rail-flyout">
                                 <div class="flyout-title">Analytics</div>
                                 @can('analytics.dashboard')<a class="flyout-link {{ request()->routeIs('admin.analytics.dashboard') ? 'flyout-active' : '' }}" href="{{ route('admin.analytics.dashboard') }}"><i class="bi bi-bar-chart-line-fill"></i> Analytics</a>@endcan
+                                <a class="flyout-link {{ request()->routeIs('admin.staff-performance.*') ? 'flyout-active' : '' }}" href="{{ route('admin.staff-performance.index') }}"><i class="bi bi-trophy-fill"></i> Staff Performance</a>
                                 <a class="flyout-link {{ request()->routeIs('admin.search-analytics.*') ? 'flyout-active' : '' }}" href="{{ route('admin.search-analytics.index') }}"><i class="bi bi-search"></i> Search Analytics</a>
                                 <a class="flyout-link {{ request()->routeIs('admin.ai-analytics.*') ? 'flyout-active' : '' }}" href="{{ route('admin.ai-analytics.index') }}"><i class="bi bi-stars"></i> AI Analytics</a>
                                 @can('marketing-feedback.index')<a class="flyout-link {{ request()->routeIs('admin.marketing-feedback.*') ? 'flyout-active' : '' }}" href="{{ route('admin.marketing-feedback.index') }}"><i class="bi bi-chat-square-text"></i> Marketing Feedback</a>@endcan

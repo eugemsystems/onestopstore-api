@@ -154,6 +154,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
         // Dashboard
         Route::get('/dashboard', [AdminAuthController::class, 'dashboard'])->name('dashboard');
 
+        // Staff performance (leaderboard + per-staff order audit; admin only)
+        Route::get('/staff-performance', [\App\Http\Controllers\Admin\AdminStaffPerformanceController::class, 'index'])->name('staff-performance.index');
+        Route::get('/staff-performance/{user}', [\App\Http\Controllers\Admin\AdminStaffPerformanceController::class, 'show'])->whereNumber('user')->name('staff-performance.show');
+
         // Profile
         Route::get('/profile', [AdminAuthController::class, 'profile'])->name('profile');
 
