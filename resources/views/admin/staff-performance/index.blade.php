@@ -10,11 +10,11 @@
 <div class="sp-hero">
     <div>
         <h2><i class="bi bi-trophy-fill me-2"></i>Staff Performance</h2>
-        <p>Paid orders &amp; documents — excludes unpaid and cancelled orders. Ranked by USD-equivalent revenue.</p>
+        <p>Paid orders &amp; documents — excludes unpaid and cancelled orders. Ranked by USD revenue.</p>
     </div>
     <div class="sp-hero-stats">
         <div><div class="v">{{ number_format($grand['orders']) }}</div><div class="l">Paid orders</div></div>
-        <div><div class="v">${{ number_format($grand['usd'], 2) }}</div><div class="l">Total (USD eq.)</div></div>
+        <div><div class="v">${{ number_format($grand['usd'], 2) }}</div><div class="l">Total (USD)</div></div>
     </div>
 </div>
 
@@ -29,7 +29,7 @@
                     <th>Staff Member</th>
                     <th style="text-align:center;">Paid Orders</th>
                     <th style="text-align:right;">Revenue (by currency)</th>
-                    <th style="text-align:right;">USD Equivalent</th>
+                    <th style="text-align:right;">USD (recorded)</th>
                     <th style="text-align:right;">Avg Order (USD)</th>
                     <th>Order Status Breakdown</th>
                     <th style="text-align:center;">Quotes</th>
@@ -83,6 +83,6 @@
 </div>
 <p style="font-size:.72rem;color:#94a3b8;margin-top:10px;">
     Revenue is credited to whoever made the first payment-confirming status change on an order (delivery and cancellation changes do not count).
-    USD equivalent = order total ÷ exchange rate. Click a staff member to see every order behind their number.
+    Order totals are recorded in USD; local-currency amounts are converted for display using the order's exchange rate. Click a staff member to see every order behind their number.
 </p>
 @endsection

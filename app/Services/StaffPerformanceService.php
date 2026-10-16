@@ -132,15 +132,31 @@ class StaffPerformanceService
             ->where('orders.created_at', '<=', $to);
     }
 
-    /** USD-equivalent expression: exchange_rate is "local units per 1 USD". */
+    /**
+     * orders.total is ALWAYS stored in USD (even for ZMW/other-currency orders), so the
+     * USD figure is the raw total. Local-currency amounts are display-only conversions.
+     */
     public static function usdExpr(string $prefix = 'orders'): string
     {
-        // Orders converted from invoices store exchange_rate = 1 regardless of currency,
-        // so fall back to the currency table's rate for those.
-        $rate = "CASE WHEN {$prefix}.note LIKE 'Created from %' AND COALESCE({$prefix}.exchange_rate, 1) = 1 "
-              . "THEN (SELECT NULLIF(cur.exchange_rate, 0) FROM currencies cur WHERE UPPER(cur.code) = UPPER({$prefix}.currency) LIMIT 1) "
-              . "ELSE {$prefix}.exchange_rate END";
-        return "{$prefix}.total / COALESCE(NULLIF({$rate}, 0), 1)";
+        return "{$prefix}.total";
+    }
+
+    /**
+     * Local units per 1 USD, used only to DISPLAY the order in its own currency.
+     * Falls back to the currencies table when the order has no usable rate stored
+     * (missing/0, or the placeholder 1 on a non-USD order, e.g. converted invoices).
+     */
+    public static function rateExpr(string $prefix = 'orders'): string
+    {
+        return "COALESCE(NULLIF(CASE WHEN COALESCE({$prefix}.exchange_rate, 0) <= 1 AND UPPER(COALESCE({$prefix}.currency, 'USD')) <> 'USD' "
+             . "THEN (SELECT NULLIF(cur.exchange_rate, 0) FROM currencies cur WHERE UPPER(cur.code) = UPPER({$prefix}.currency) LIMIT 1) "
+             . "ELSE {$prefix}.exchange_rate END, 0), 1)";
+    }
+
+    /** Order total converted into its own currency for display. */
+    public static function localExpr(string $prefix = 'orders'): string
+    {
+        return "{$prefix}.total * " . self::rateExpr($prefix);
     }
 
     public function currencySymbols(): Collection
@@ -154,7 +170,7 @@ class StaffPerformanceService
         $symbols = $this->currencySymbols();
 
         $byCurrency = $this->attributedOrders($user->id, $from, $to)
-            ->selectRaw('orders.currency, MIN(orders.currency_symbol) as currency_symbol, COUNT(*) as orders_count, SUM(orders.total) as total_amount, SUM(' . self::usdExpr() . ') as usd_total')
+            ->selectRaw('orders.currency, MIN(orders.currency_symbol) as currency_symbol, COUNT(*) as orders_count, SUM(' . self::localExpr() . ') as total_amount, SUM(' . self::usdExpr() . ') as usd_total')
             ->groupBy('orders.currency')->orderByDesc('usd_total')->get()
             ->map(function ($r) use ($symbols) {
                 $r->currency_symbol = $symbols[strtoupper((string) $r->currency)] ?? $r->currency_symbol;

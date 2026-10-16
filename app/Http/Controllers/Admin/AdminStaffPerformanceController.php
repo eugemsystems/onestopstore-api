@@ -50,6 +50,8 @@ class AdminStaffPerformanceController extends Controller
             ->selectRaw('orders.id, orders.order_number, orders.total, orders.currency, orders.currency_symbol, orders.exchange_rate,
                 orders.payment_status, orders.payment_method, orders.note, orders.created_at, orders.updated_at, orders.created_by_id,
                 (' . StaffPerformanceService::usdExpr() . ') as usd_total,
+                (' . StaffPerformanceService::localExpr() . ') as local_total,
+                (' . StaffPerformanceService::rateExpr() . ') as rate,
                 c.name as customer_name, c.email as customer_email, os.name as status_name')
             ->orderByDesc('orders.created_at')
             ->paginate(50)->withQueryString();

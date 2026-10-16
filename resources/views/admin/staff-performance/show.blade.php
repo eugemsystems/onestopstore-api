@@ -17,7 +17,7 @@
     </div>
     <div class="sp-hero-stats">
         <div><div class="v">{{ number_format($summary['total_paid_orders']) }}</div><div class="l">Paid orders</div></div>
-        <div><div class="v">${{ number_format($summary['usd_total'], 2) }}</div><div class="l">USD equivalent</div></div>
+        <div><div class="v">${{ number_format($summary['usd_total'], 2) }}</div><div class="l">USD</div></div>
     </div>
 </div>
 
@@ -25,7 +25,7 @@
 
 <div class="kpis">
     <div class="kpi"><div class="l">Paid orders credited</div><div class="v">{{ number_format($summary['total_paid_orders']) }}</div></div>
-    <div class="kpi"><div class="l">Revenue (USD eq.)</div><div class="v">${{ number_format($summary['usd_total'], 2) }}</div></div>
+    <div class="kpi"><div class="l">Revenue (USD)</div><div class="v">${{ number_format($summary['usd_total'], 2) }}</div></div>
     <div class="kpi"><div class="l">Average order (USD)</div><div class="v">${{ number_format($summary['avg_order_usd'], 2) }}</div></div>
     <div class="kpi">
         <div class="l">By currency</div>
@@ -45,7 +45,7 @@
 
 @if($trend->isNotEmpty())
 <div class="sp-card">
-    <div class="sp-card-h">{{ $period === 'year' ? 'Monthly' : 'Daily' }} revenue (USD equivalent)</div>
+    <div class="sp-card-h">{{ $period === 'year' ? 'Monthly' : 'Daily' }} revenue (USD)</div>
     <div style="padding:14px 18px;">
         @foreach($trend as $t)
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:5px;font-size:.74rem;">
@@ -67,9 +67,9 @@
                     <th>Order</th>
                     <th>Placed</th>
                     <th>Customer</th>
-                    <th style="text-align:right;">Amount</th>
+                    <th style="text-align:right;">Amount (local)</th>
                     <th style="text-align:right;">Rate</th>
-                    <th style="text-align:right;">USD Eq.</th>
+                    <th style="text-align:right;">USD (recorded)</th>
                     <th>Payment</th>
                     <th>Status</th>
                     <th>Credit proof (who confirmed it)</th>
@@ -87,8 +87,8 @@
                         <div style="font-size:.68rem;color:#94a3b8;">{{ $o->customer_email }}</div>
                         @if($o->creator_name)<div style="font-size:.68rem;color:#94a3b8;">Created by {{ $o->creator_name }}</div>@endif
                     </td>
-                    <td style="text-align:right;white-space:nowrap;font-weight:700;">{{ $o->symbol }} {{ number_format($o->total, 2) }}<div style="font-size:.65rem;color:#94a3b8;font-weight:500;">{{ $o->currency }}</div></td>
-                    <td style="text-align:right;color:#64748b;">{{ rtrim(rtrim(number_format($o->exchange_rate ?: 1, 4), '0'), '.') }}</td>
+                    <td style="text-align:right;white-space:nowrap;font-weight:700;">{{ $o->symbol }} {{ number_format($o->local_total, 2) }}<div style="font-size:.65rem;color:#94a3b8;font-weight:500;">{{ $o->currency }}</div></td>
+                    <td style="text-align:right;color:#64748b;">{{ rtrim(rtrim(number_format($o->rate, 4), '0'), '.') }}</td>
                     <td style="text-align:right;font-weight:700;">${{ number_format($o->usd_total, 2) }}</td>
                     <td>
                         <span class="pill ok">{{ $o->payment_status }}</span>
