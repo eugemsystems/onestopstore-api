@@ -111,9 +111,9 @@ class AdminStaffPerformanceController extends Controller
         ]);
 
         // Daily USD trend for the chosen window (month → per day, year → per month).
-        $fmt = $period === 'year' ? '%Y-%m' : '%Y-%m-%d';
+        $fmt = $period === 'year' ? 'YYYY-MM' : 'YYYY-MM-DD';
         $trend = $svc->attributedOrders($user->id, $from, $to)
-            ->selectRaw("DATE_FORMAT(orders.created_at, '{$fmt}') as bucket, COUNT(*) as cnt, SUM(" . StaffPerformanceService::usdExpr() . ') as usd')
+            ->selectRaw("to_char(orders.created_at, '{$fmt}') as bucket, COUNT(*) as cnt, SUM(" . StaffPerformanceService::usdExpr() . ') as usd')
             ->groupBy('bucket')->orderBy('bucket')->get();
 
         return view('admin.staff-performance.show', compact('user', 'summary', 'orders', 'trend', 'period', 'from', 'to', 'label', 'month', 'year'));
