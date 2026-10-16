@@ -15,7 +15,7 @@ class AdminStaffPerformanceController extends Controller
 {
     private function adminOnly(): void
     {
-        abort_unless(auth()->user()?->hasRole('admin'), 403);
+        abort_unless(auth()->user()?->can('staff-performance.view'), 403);
     }
 
     /** Leaderboard: every staff member ranked by USD-equivalent revenue for the month/year. */

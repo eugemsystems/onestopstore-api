@@ -66,7 +66,7 @@
                     <td style="text-align:right;color:#64748b;">${{ number_format($s['avg_order_usd'], 2) }}</td>
                     <td>
                         @forelse($s['orders_by_status'] as $name => $cnt)
-                            <span class="pill">{{ $name }} <b>{{ $cnt }}</b></span>
+                            @include('admin.staff-performance._status-pill', ['name' => $name, 'count' => $cnt])
                         @empty <span style="color:#cbd5e1;">—</span> @endforelse
                     </td>
                     <td style="text-align:center;">{{ $s['quotations'] ?: '—' }}</td>

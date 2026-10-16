@@ -39,7 +39,7 @@
     </div>
     <div class="kpi">
         <div class="l">Status breakdown</div>
-        @forelse($summary['orders_by_status'] as $n => $c)<span class="pill">{{ $n }} <b>{{ $c }}</b></span>@empty <div class="s">—</div> @endforelse
+        @forelse($summary['orders_by_status'] as $n => $c)@include('admin.staff-performance._status-pill', ['name' => $n, 'count' => $c])@empty <div class="s">—</div> @endforelse
     </div>
 </div>
 
@@ -94,7 +94,7 @@
                         <span class="pill ok">{{ $o->payment_status }}</span>
                         <div style="font-size:.68rem;color:#94a3b8;">{{ $o->payment_method ?? '—' }}</div>
                     </td>
-                    <td><span class="pill">{{ $o->status_name }}</span></td>
+                    <td>@include('admin.staff-performance._status-pill', ['name' => $o->status_name, 'count' => ''])</td>
                     <td style="font-size:.72rem;">
                         @if($o->credit)
                             <b>{{ $o->credit->old_status ?? '—' }} → {{ $o->credit->new_status }}</b><br>

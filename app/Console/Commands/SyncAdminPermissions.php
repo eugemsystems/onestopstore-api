@@ -189,6 +189,7 @@ class SyncAdminPermissions extends Command
 
             'Analytics' => [
                 ['name' => 'analytics.dashboard', 'description' => 'View analytics dashboard'],
+                ['name' => 'staff-performance.view', 'description' => 'View staff performance leaderboard and order audit'],
                 ['name' => 'analytics.sessions', 'description' => 'View session analytics'],
                 ['name' => 'analytics.cart-abandonments', 'description' => 'View cart abandonments'],
                 ['name' => 'activity-log.view', 'description' => 'View audit trail / activity log'],
