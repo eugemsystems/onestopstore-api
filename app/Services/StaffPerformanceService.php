@@ -81,7 +81,10 @@ class StaffPerformanceService
 
     public function staffUsers(): Collection
     {
-        return User::whereHas('roles', fn ($q) => $q->whereNotIn('name', ['consumer', 'vendor']))
+        // Only the "rainesStaff" role (tolerant of case/space/dash/underscore variants of the name).
+        return User::whereHas('roles', fn ($q) => $q->whereRaw(
+                "LOWER(REPLACE(REPLACE(REPLACE(roles.name, '_', ''), '-', ''), ' ', '')) = 'rainesstaff'"
+            ))
             ->whereNull('deleted_at')->select('id', 'name', 'email')->orderBy('name')->get();
     }
 
