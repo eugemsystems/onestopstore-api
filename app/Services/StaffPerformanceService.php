@@ -81,9 +81,9 @@ class StaffPerformanceService
 
     public function staffUsers(): Collection
     {
-        // Only the "rainesStaff" role (tolerant of case/space/dash/underscore variants of the name).
+        // Only the "Staff Raines" role (case/space/dash/underscore-insensitive, either word order).
         return User::whereHas('roles', fn ($q) => $q->whereRaw(
-                "LOWER(REPLACE(REPLACE(REPLACE(roles.name, '_', ''), '-', ''), ' ', '')) = 'rainesstaff'"
+                "LOWER(REPLACE(REPLACE(REPLACE(roles.name, '_', ''), '-', ''), ' ', '')) IN ('staffraines', 'rainesstaff')"
             ))
             ->whereNull('deleted_at')->select('id', 'name', 'email')->orderBy('name')->get();
     }
