@@ -91,7 +91,10 @@ Route::middleware(['auth:sanctum'])->get('/user', function (Request $request) {
 });
 
 // ── Delete / deactivate own account ──────────────────────────────────────────
-Route::middleware(['auth:sanctum'])->delete('/deleteaccount', 'App\Http\Controllers\UserController@deleteAccount');
+// Mobile clients (and some HTTP libraries/proxies) can't reliably send DELETE, so the same
+// soft-delete action is also exposed via POST and under /delete-account.
+Route::middleware(['auth:sanctum'])->match(['DELETE', 'POST'], '/deleteaccount', 'App\Http\Controllers\UserController@deleteAccount');
+Route::middleware(['auth:sanctum'])->match(['DELETE', 'POST'], '/delete-account', 'App\Http\Controllers\UserController@deleteAccount');
 
 
 // Countries & States
