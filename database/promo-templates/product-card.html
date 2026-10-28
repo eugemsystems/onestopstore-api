@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Product Card</title>
+<style>
+    /* Storefront-style product card (no buttons). Fixed size so every saved image is identical. */
+    .pc-card {
+        position: relative;
+        width: 480px;
+        height: 810px;
+        box-sizing: border-box;
+        background: #ffffff;
+        border: 2px solid #eceff3;
+        border-radius: 28px;
+        overflow: hidden;
+        font-family: 'Segoe UI', Arial, sans-serif;
+        color: #1f2937;
+    }
+
+    /* Discount badge (top-left) — only shown when the product is on sale */
+    .pc-badge {
+        position: absolute;
+        top: 0; left: 26px;
+        width: 176px;
+        padding: 12px 0 14px;
+        background: #d62828;
+        border-radius: 0 0 22px 22px;
+        text-align: center;
+        color: #fff;
+        line-height: 1.1;
+    }
+    .pc-badge .pc-pct   { font-size: 38px; font-weight: 800; }
+    .pc-badge .pc-save  { font-size: 18px; margin-top: 4px; opacity: .9; }
+    .pc-badge .pc-amt   { display: block; margin: 8px 12px 0; padding: 8px 0; background: #b51f1f; border-radius: 12px; font-size: 26px; font-weight: 800; }
+
+    /* Product image */
+    .product-image-container {
+        position: absolute;
+        top: 40px; left: 150px; right: 40px;
+        height: 430px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+    .product-image-container img { max-width: 100%; max-height: 100%; object-fit: contain; }
+
+    /* Lower info block */
+    .pc-info { position: absolute; left: 30px; right: 30px; top: 490px; }
+    .pc-name {
+        font-size: 29px; font-weight: 600; line-height: 1.25;
+        height: 74px; overflow: hidden; color: #111827;
+    }
+    .pc-rating { margin-top: 12px; font-size: 25px; display: flex; align-items: center; gap: 8px; height: 34px; }
+    .pc-rating .pc-star  { color: #f5a623; font-size: 30px; }
+    .pc-rating .pc-score { font-weight: 700; }
+    .pc-rating .pc-count { color: #6b7280; }
+    .pc-prices { margin-top: 12px; display: flex; align-items: baseline; gap: 14px; white-space: nowrap; height: 54px; }
+    .pc-now  { font-size: 46px; font-weight: 800; color: #0b5ed7; }
+    .pc-was  { font-size: 26px; color: #6b7280; text-decoration: line-through; }
+    .pc-off  { font-size: 22px; font-weight: 700; color: #15803d; background: #dcfce7; padding: 3px 12px; border-radius: 10px; }
+    .pc-deliver {
+        margin-top: 14px; display: inline-flex; align-items: center; gap: 10px;
+        background: #15803d; color: #fff; font-size: 24px; font-weight: 700;
+        padding: 9px 22px; border-radius: 30px;
+    }
+    .pc-cod { margin-top: 14px; display: flex; align-items: center; gap: 10px; font-size: 24px; font-weight: 600; color: #15803d; }
+    .pc-card svg { width: 28px; height: 28px; flex-shrink: 0; }
+</style>
+</head>
+<body>
+<!--
+  Placeholders filled per product by the "Generate Banners by SKU" page:
+    {{name}} {{name_short}} {{sku}} {{image}}
+    {{now_price}} {{was_price}} {{discount_percent}} {{save_amount}}
+    {{rating}} {{reviews_count}}
+  data-show="sale"   -> element is removed when the product is NOT on sale
+  data-show="rating" -> element is removed when the product has no reviews
+  Edit the delivery / payment lines below freely — they are plain text.
+-->
+<div class="pc-card promo-card">
+
+    <div class="pc-badge" data-show="sale">
+        <div class="pc-pct">-{{discount_percent}}%</div>
+        <div class="pc-save">Save</div>
+        <span class="pc-amt">{{save_amount}}</span>
+    </div>
+
+    <div class="product-image-container">
+        <img src="{{image}}" alt="">
+    </div>
+
+    <div class="pc-info">
+        <div class="pc-name">{{name_short}}</div>
+
+        <div class="pc-rating" data-show="rating">
+            <span class="pc-star">&#9733;</span>
+            <span class="pc-score">{{rating}}</span>
+            <span class="pc-count">({{reviews_count}})</span>
+        </div>
+
+        <div class="pc-prices">
+            <span class="pc-now">{{now_price}}</span>
+            <span class="pc-was" data-show="sale">{{was_price}}</span>
+            <span class="pc-off" data-show="sale">-{{discount_percent}}%</span>
+        </div>
+
+        <div class="pc-deliver">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 6h13v10H1z"/><path d="M14 9h4l4 4v3h-8z"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg>
+            Same Day Delivery Harare
+        </div>
+
+        <div class="pc-cod">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#15803d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="3"/></svg>
+            Cash on Delivery
+        </div>
+    </div>
+
+</div>
+</body>
+</html>

@@ -294,52 +294,93 @@ function ratingMarkup(product) {
         + `<span class="rating-count">${rating.toFixed(1)} (${product.reviews_count})</span>`;
 }
 
+function formatMoney(rawPrice, curr) {
+    const v = parseFloat(rawPrice) * curr.rate;
+    if (!isFinite(v)) return '';
+    return curr.symbol + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 function buildBannerNode(product, curr, bgData, imgDataUrl) {
+    const price    = parseFloat(product.price) || 0;
+    const sale     = parseFloat(product.sale_price) || 0;
+    const onSale   = sale > 0 && price > 0 && sale < price;
+    const name     = product.name || '';
+    const nameLong = name.length > 50 ? name.substring(0, 50).trimEnd() + '…' : name;
+    const nameShort= name.length > 64 ? name.substring(0, 64).trimEnd() + '…' : name;
+    const rating   = parseFloat(product.rating);
+    const hasRating= !isNaN(rating) && rating > 0 && product.reviews_count > 0;
+
+    const tokens = {
+        name,
+        name_short:       nameShort,
+        sku:              product.sku || '',
+        now_price:        formatMoney(onSale ? sale : price, curr),
+        was_price:        onSale ? formatMoney(price, curr) : '',
+        discount_percent: onSale ? Math.round((1 - sale / price) * 100) : 0,
+        save_amount:      onSale ? formatMoney(price - sale, curr) : '',
+        rating:           hasRating ? rating.toFixed(1) : '',
+        reviews_count:    hasRating ? product.reviews_count : '',
+        currency:         curr.code,
+        symbol:           curr.symbol,
+    };
+
+    const tokenMode = /\{\{\s*\w+\s*\}\}/.test(TEMPLATE_BODY);
+    const html = tokenMode
+        ? TEMPLATE_BODY.replace(/\{\{\s*(\w+)\s*\}\}/g, (m, k) =>
+              k === 'image' ? (imgDataUrl || '') : escHtml(tokens[k] ?? ''))
+        : TEMPLATE_BODY;
+
     const holder = document.createElement('div');
-    holder.innerHTML = TEMPLATE_BODY;
-    const root = holder.querySelector('.promo-banner');
+    holder.innerHTML = html;
+    // The card is whatever root element the saved template defines
+    const root = holder.querySelector('.promo-banner, .promo-card') || holder.firstElementChild;
     if (!root) return buildFallbackBannerNode(product, curr, bgData, imgDataUrl);
 
-    const wasPrice = product.price ? formatPrice(product.price, curr) : '';
-    const nowPrice = product.sale_price ? formatPrice(product.sale_price, curr) : wasPrice;
-    const onSale   = !!product.sale_price && product.sale_price !== product.price;
-    const name = (product.name || '').length > 50
-        ? product.name.substring(0, 50).trimEnd() + '…'
-        : (product.name || '');
+    if (tokenMode) {
+        // data-show="sale" / "rating" / "nosale": drop elements that don't apply to this product
+        holder.querySelectorAll('[data-show]').forEach(el => {
+            const k = el.getAttribute('data-show');
+            if ((k === 'sale' && !onSale) || (k === 'nosale' && onSale) || (k === 'rating' && !hasRating)) el.remove();
+        });
+        root.querySelectorAll('img').forEach(img => {
+            img.removeAttribute('onerror');
+            if (!imgDataUrl) img.style.display = 'none';
+        });
+    } else {
+        // Legacy class-based templates (.product-name / .now-price / …)
+        const wasPrice = price ? formatPrice(product.price, curr) : '';
+        const nowPrice = sale ? formatPrice(product.sale_price, curr) : wasPrice;
+        const setText = (sel, text) => root.querySelectorAll(sel).forEach(el => { el.textContent = text; });
+        setText('.product-id', product.sku ? '#' + product.sku : '');
+        setText('.product-name', nameLong);
+        setText('.was-price', onSale ? wasPrice : '');
+        setText('.now-price', nowPrice);
+        root.querySelectorAll('.sale-end-date').forEach(el => { el.textContent = ''; el.classList.remove('visible'); });
 
-    const setText = (sel, text) => root.querySelectorAll(sel).forEach(el => { el.textContent = text; });
-
-    setText('.product-id', product.sku ? '#' + product.sku : '');
-    setText('.product-name', name);
-    setText('.was-price', onSale ? wasPrice : '');
-    setText('.now-price', nowPrice);
-    root.querySelectorAll('.sale-end-date').forEach(el => { el.textContent = ''; el.classList.remove('visible'); });
-
-    // Product image inside the template's image container
-    const container = root.querySelector('.product-image-container');
-    if (container) {
-        let img = container.querySelector('img');
-        if (!img) { img = document.createElement('img'); container.appendChild(img); }
-        if (imgDataUrl) { img.removeAttribute('onerror'); img.src = imgDataUrl; img.style.display = ''; }
-        else { img.removeAttribute('src'); img.style.display = 'none'; }
-
-        const tx = product._imgTransform || { x: 0, y: 0, scale: 1 };
-        if (tx.x || tx.y || tx.scale !== 1) {
-            container.style.transform = `translate(${tx.x||0}px,${tx.y||0}px) scale(${tx.scale||1})`;
-            container.style.transformOrigin = 'center center';
+        const c = root.querySelector('.product-image-container');
+        if (c) {
+            let img = c.querySelector('img');
+            if (!img) { img = document.createElement('img'); c.appendChild(img); }
+            if (imgDataUrl) { img.removeAttribute('onerror'); img.src = imgDataUrl; img.style.display = ''; }
+            else { img.removeAttribute('src'); img.style.display = 'none'; }
+        }
+        if (hasRating) {
+            let ratingEl = root.querySelector('.product-rating, .rating, #dynamicRating');
+            if (!ratingEl) {
+                ratingEl = document.createElement('div');
+                ratingEl.className = 'product-rating';
+                (root.querySelector('.product-name') || root).appendChild(ratingEl);
+            }
+            ratingEl.innerHTML = ratingMarkup(product);
         }
     }
 
-    // Rating: use the template's own rating element if it has one, otherwise add it under the name
-    const stars = ratingMarkup(product);
-    if (stars) {
-        let ratingEl = root.querySelector('.product-rating, .rating, #dynamicRating');
-        if (!ratingEl) {
-            ratingEl = document.createElement('div');
-            ratingEl.className = 'product-rating';
-            (root.querySelector('.product-name') || root).appendChild(ratingEl);
-        }
-        ratingEl.innerHTML = stars;
+    // Image move/resize edits made in the preview
+    const container = root.querySelector('.product-image-container');
+    const tx = product._imgTransform || { x: 0, y: 0, scale: 1 };
+    if (container && (tx.x || tx.y || tx.scale !== 1)) {
+        container.style.transform = `translate(${tx.x||0}px,${tx.y||0}px) scale(${tx.scale||1})`;
+        container.style.transformOrigin = 'center center';
     }
 
     // Strip duplicate ids so many cards can live on one page
@@ -348,6 +389,17 @@ function buildBannerNode(product, curr, bgData, imgDataUrl) {
 
     if (bgData) root.style.backgroundImage = `url('${bgData}')`;
     return root;
+}
+
+// Real size of the template's card, so previews/captures match it exactly
+let BANNER_W = 800, BANNER_H = 850;
+function measureBanner() {
+    const probe = buildBannerNode({ name: 'Sample', sku: 'x' }, getCurrency(), bgDataUrl, null);
+    probe.style.visibility = 'hidden';
+    renderPool.appendChild(probe);
+    const w = probe.offsetWidth, h = probe.offsetHeight;
+    renderPool.removeChild(probe);
+    if (w > 50 && h > 50) { BANNER_W = w; BANNER_H = h; }
 }
 
 // Used only when a template has no .promo-banner markup in its saved HTML
@@ -389,9 +441,8 @@ async function renderPreviews(products) {
 
     // Background is already base64 from PHP — use directly, skip toDataUrl()
     bgDataUrl = getBgUrl();
-    if (!bgDataUrl) {
-        setStatus('<i class="bi bi-exclamation-triangle me-1"></i>No background image found in this template CSS', 'warning');
-    }
+    measureBanner();
+    PREVIEW_SCALE = Math.min(0.5, 300 / BANNER_W);
 
     previewGrid.innerHTML = '';
 
@@ -437,8 +488,13 @@ async function renderPreviews(products) {
         // Scaled preview card
         const outer = document.createElement('div');
         outer.className = 'banner-scale-outer';
+        outer.style.width  = (BANNER_W * PREVIEW_SCALE) + 'px';
+        outer.style.height = (BANNER_H * PREVIEW_SCALE) + 'px';
         const wrap = document.createElement('div');
         wrap.className = 'banner-scale-wrap';
+        wrap.style.width  = BANNER_W + 'px';
+        wrap.style.height = BANNER_H + 'px';
+        wrap.style.transform = `scale(${PREVIEW_SCALE})`;
         wrap.appendChild(bannerNode.cloneNode(true));
         outer.appendChild(wrap);
 
@@ -477,7 +533,7 @@ async function renderPreviews(products) {
 }
 
 // ── Interactive Image Editing ──────────────────────────────────────────────
-const PREVIEW_SCALE = 0.35; // must match .banner-scale-wrap transform:scale()
+let PREVIEW_SCALE = 0.35; // set from the template's real size in renderPreviews()
 
 function makeEditable(card, productIndex) {
     const product = loadedProducts[productIndex];
@@ -641,12 +697,12 @@ async function captureCard(product, curr) {
         // Let the DOM settle before capture
         await new Promise(r => setTimeout(r, 80));
         const canvas = await html2canvas(node, {
-            scale:           1,      // 800×850 is sufficient for Facebook ads (1200×628 min)
+            scale:           BANNER_W <= 600 ? 2 : 1,
             useCORS:         true,
             allowTaint:      false,  // data URLs don't taint the canvas
             backgroundColor: null,
-            width:           800,
-            height:          850,
+            width:           BANNER_W,
+            height:          BANNER_H,
             logging:         false,
         });
         // WebP at 85% quality: ~3-5× smaller than PNG, fully supported by Facebook
