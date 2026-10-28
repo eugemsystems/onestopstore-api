@@ -1220,10 +1220,13 @@ class ProductController extends Controller
             }
 
             // Query products by SKUs
+            // select() must come first — calling it after withAvg/withCount discards those columns
             $products = Product::with(['product_thumbnail'])
+                ->select('id', 'name', 'sku', 'slug', 'price', 'sale_price', 'product_thumbnail_id')
+                ->withAvg('reviews', 'rating')
+                ->withCount('reviews')
                 ->whereIn('sku', $skus)
                 ->where('status', 1) // Only active products
-                ->select('id', 'name', 'sku', 'slug', 'price', 'sale_price', 'product_thumbnail_id')
                 ->get();
 
             if ($products->isEmpty()) {
@@ -1264,6 +1267,8 @@ class ProductController extends Controller
                     'price'      => $product->price,
                     'sale_price' => $product->sale_price,
                     'thumbnail'  => $thumbnail,
+                    'rating'        => $product->reviews_avg_rating !== null ? round((float) $product->reviews_avg_rating, 1) : null,
+                    'reviews_count' => (int) $product->reviews_count,
                 ];
             });
 

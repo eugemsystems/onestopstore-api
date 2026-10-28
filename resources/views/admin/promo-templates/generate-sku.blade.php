@@ -32,6 +32,10 @@
         /* ── Template CSS from DB (each template has its own styles) ─────── */
         /* background-image is handled inline via base64 — stripped from CSS  */
         .promo-banner { background-size:cover; background-position:center; }
+        /* Rating row sits inside .product-name so it always flows below the name.
+           Templates can restyle it by defining .product-rating in their own CSS (below). */
+        .product-rating { font-size:20px; font-weight:normal; color:#ffc107; margin-top:6px; letter-spacing:2px; text-shadow:1px 1px 3px rgba(0,0,0,.6); white-space:nowrap; }
+        .product-rating .rating-count { font-size:15px; color:#fff; letter-spacing:0; margin-left:4px; }
         {!! $templateCss !!}     
 
 
@@ -120,6 +124,12 @@
                 <select class="form-select" id="currencySelect">
                     <option value="USD|$|1">USD ($)</option>
                 </select>
+                <div class="form-check mt-2">
+                    <input class="form-check-input" type="checkbox" id="removeBgToggle">
+                    <label class="form-check-label" for="removeBgToggle" style="font-size:12px;">
+                        Remove image backgrounds <span class="text-danger">(slow &amp; heavy on the server — leave off unless needed)</span>
+                    </label>
+                </div>
             </div>
             <div class="col-md-3 d-flex flex-column justify-content-end">
                 <div id="statusMsg" class="alert alert-info py-2 mb-0" style="font-size:13px;">
@@ -167,6 +177,7 @@ const btnSave       = document.getElementById('btnSave');
 const btnDownloadCsv= document.getElementById('btnDownloadCsv');
 const skuInput      = document.getElementById('skuInput');
 const currencySelect= document.getElementById('currencySelect');
+const removeBgToggle= document.getElementById('removeBgToggle');
 const bgImageUrl    = document.getElementById('bgImageUrl');
 const previewSection= document.getElementById('previewSection');
 const previewGrid   = document.getElementById('previewGrid');
@@ -270,17 +281,84 @@ function escHtml(s) {
 }
 
 // ── Build full-resolution banner DOM node ──────────────────────────────────
-// bgData and imgDataUrl must already be base64 data URLs or null
+// bgData and imgDataUrl must already be base64 data URLs or null.
+// The card is the TEMPLATE'S OWN markup (cloned from its saved HTML and filled with the
+// product), so the saved image is exactly the card designed in the template.
+const TEMPLATE_BODY = {!! json_encode($templateBodyHtml ?? '') !!};
+
+function ratingMarkup(product) {
+    const rating = parseFloat(product.rating);
+    if (isNaN(rating) || rating <= 0 || !(product.reviews_count > 0)) return '';
+    const full = Math.max(0, Math.min(5, Math.round(rating)));
+    return '★'.repeat(full) + '☆'.repeat(5 - full)
+        + `<span class="rating-count">${rating.toFixed(1)} (${product.reviews_count})</span>`;
+}
+
 function buildBannerNode(product, curr, bgData, imgDataUrl) {
-    const wasPrice   = product.price      ? formatPrice(product.price,      curr) : '';
-    const nowPrice   = product.sale_price ? formatPrice(product.sale_price, curr) : wasPrice;
-    const displayWas = product.sale_price ? wasPrice : '';
-    // Truncate name at 50 chars to prevent text overlapping price/image areas
+    const holder = document.createElement('div');
+    holder.innerHTML = TEMPLATE_BODY;
+    const root = holder.querySelector('.promo-banner');
+    if (!root) return buildFallbackBannerNode(product, curr, bgData, imgDataUrl);
+
+    const wasPrice = product.price ? formatPrice(product.price, curr) : '';
+    const nowPrice = product.sale_price ? formatPrice(product.sale_price, curr) : wasPrice;
+    const onSale   = !!product.sale_price && product.sale_price !== product.price;
     const name = (product.name || '').length > 50
         ? product.name.substring(0, 50).trimEnd() + '…'
         : (product.name || '');
 
-    // Apply stored transform if product was edited
+    const setText = (sel, text) => root.querySelectorAll(sel).forEach(el => { el.textContent = text; });
+
+    setText('.product-id', product.sku ? '#' + product.sku : '');
+    setText('.product-name', name);
+    setText('.was-price', onSale ? wasPrice : '');
+    setText('.now-price', nowPrice);
+    root.querySelectorAll('.sale-end-date').forEach(el => { el.textContent = ''; el.classList.remove('visible'); });
+
+    // Product image inside the template's image container
+    const container = root.querySelector('.product-image-container');
+    if (container) {
+        let img = container.querySelector('img');
+        if (!img) { img = document.createElement('img'); container.appendChild(img); }
+        if (imgDataUrl) { img.removeAttribute('onerror'); img.src = imgDataUrl; img.style.display = ''; }
+        else { img.removeAttribute('src'); img.style.display = 'none'; }
+
+        const tx = product._imgTransform || { x: 0, y: 0, scale: 1 };
+        if (tx.x || tx.y || tx.scale !== 1) {
+            container.style.transform = `translate(${tx.x||0}px,${tx.y||0}px) scale(${tx.scale||1})`;
+            container.style.transformOrigin = 'center center';
+        }
+    }
+
+    // Rating: use the template's own rating element if it has one, otherwise add it under the name
+    const stars = ratingMarkup(product);
+    if (stars) {
+        let ratingEl = root.querySelector('.product-rating, .rating, #dynamicRating');
+        if (!ratingEl) {
+            ratingEl = document.createElement('div');
+            ratingEl.className = 'product-rating';
+            (root.querySelector('.product-name') || root).appendChild(ratingEl);
+        }
+        ratingEl.innerHTML = stars;
+    }
+
+    // Strip duplicate ids so many cards can live on one page
+    root.removeAttribute('id');
+    root.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
+
+    if (bgData) root.style.backgroundImage = `url('${bgData}')`;
+    return root;
+}
+
+// Used only when a template has no .promo-banner markup in its saved HTML
+function buildFallbackBannerNode(product, curr, bgData, imgDataUrl) {
+    const wasPrice   = product.price      ? formatPrice(product.price,      curr) : '';
+    const nowPrice   = product.sale_price ? formatPrice(product.sale_price, curr) : wasPrice;
+    const displayWas = product.sale_price ? wasPrice : '';
+    const name = (product.name || '').length > 50
+        ? product.name.substring(0, 50).trimEnd() + '…'
+        : (product.name || '');
+
     const tx = product._imgTransform || { x: 0, y: 0, scale: 1 };
     const imgStyle = (tx.x || tx.y || tx.scale !== 1)
         ? `transform:translate(${tx.x||0}px,${tx.y||0}px) scale(${tx.scale||1});transform-origin:center center;`
@@ -290,8 +368,11 @@ function buildBannerNode(product, curr, bgData, imgDataUrl) {
     div.className = 'promo-banner';
     if (bgData) div.style.backgroundImage = `url('${bgData}')`;
 
+    const stars = ratingMarkup(product);
+    const ratingHtml = stars ? `<div class="product-rating">${stars}</div>` : '';
+
     div.innerHTML = `
-        <div class="product-name">${escHtml(name)}</div>
+        <div class="product-name">${escHtml(name)}${ratingHtml}</div>
         <div class="product-image-container" style="${imgStyle}">
             ${imgDataUrl ? `<img src="${imgDataUrl}" alt="">` : ''}
         </div>
@@ -323,7 +404,7 @@ async function renderPreviews(products) {
 
         // Try server-side background removal (cached by SKU)
         let imgDataUrl = null;
-        if (rawImgUrl && product.sku) {
+        if (removeBgToggle.checked && rawImgUrl && product.sku) {
             try {
                 const bgRes = await fetch('/admin/promo-templates/remove-bg', {
                     method: 'POST',
@@ -548,83 +629,104 @@ btnGenerate.addEventListener('click', async () => {
 });
 
 // ── Save Images ────────────────────────────────────────────────────────────
+// Captures the WHOLE banner card (background, product image, name, rating, prices…)
+// and uploads in small batches so a big SKU list never builds one giant request or
+// holds hundreds of images in memory at once.
+const SAVE_BATCH_SIZE = 5;
+
+async function captureCard(product, curr) {
+    const node = buildBannerNode(product, curr, bgDataUrl, product._imgDataUrl || null);
+    renderPool.appendChild(node);
+    try {
+        // Let the DOM settle before capture
+        await new Promise(r => setTimeout(r, 80));
+        const canvas = await html2canvas(node, {
+            scale:           1,      // 800×850 is sufficient for Facebook ads (1200×628 min)
+            useCORS:         true,
+            allowTaint:      false,  // data URLs don't taint the canvas
+            backgroundColor: null,
+            width:           800,
+            height:          850,
+            logging:         false,
+        });
+        // WebP at 85% quality: ~3-5× smaller than PNG, fully supported by Facebook
+        return canvas.toDataURL('image/webp', 0.85);
+    } finally {
+        if (node.parentNode === renderPool) renderPool.removeChild(node);
+    }
+}
+
+async function uploadBatch(items) {
+    const res  = await fetch('/admin/promo-templates/save-images', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': CSRF,
+            Accept:         'application/json',
+        },
+        body: JSON.stringify({ items }),
+    });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.message || 'Save failed');
+    return data.saved;
+}
+
 btnSave.addEventListener('click', async () => {
     if (!loadedProducts.length) return;
 
     const curr  = getCurrency();
-    const items = [];
+    const total = loadedProducts.length;
+    let batch   = [];
+    let failed  = 0;
+    savedItems  = [];
 
-    showLoading('Capturing banners…', `0 / ${loadedProducts.length}`, 0);
+    showLoading('Saving banners…', `0 / ${total}`, 0);
 
-    for (let i = 0; i < loadedProducts.length; i++) {
-        const product    = loadedProducts[i];
-        const imgDataUrl = product._imgDataUrl || null;
-
-        setProgress(Math.round((i / loadedProducts.length) * 60), `Capturing ${i+1} / ${loadedProducts.length}`);
-
-        try {
-            const node = buildBannerNode(product, curr, bgDataUrl, imgDataUrl);
-            renderPool.appendChild(node);
-
-            // Let the DOM settle before capture
-            await new Promise(r => setTimeout(r, 80));
-
-            const canvas = await html2canvas(node, {
-                scale:           1,      // 800×850 is sufficient for Facebook ads (1200×628 min)
-                useCORS:         true,
-                allowTaint:      false,  // data URLs don't taint the canvas
-                backgroundColor: null,
-                width:           800,
-                height:          850,
-                logging:         false,
-            });
-            // WebP at 85% quality: ~3-5× smaller than PNG, fully supported by Facebook
-            const dataUrl = canvas.toDataURL('image/webp', 0.85);
-            renderPool.removeChild(node);
-
-            items.push({
-                sku:          product.sku,
-                imageDataUrl: dataUrl,
-                product: {
-                    sku:          product.sku,
-                    name:         product.name,
-                    description:  product.description ?? '',
-                    slug:         product.slug ?? '',
-                    price:        product.price,
-                    sale_price:   product.sale_price,
-                    stock_status: product.stock_status ?? 'in_stock',
-                    brand:        product.brand?.name ?? '{{ config("app.name") }}',
-                    currency:     curr.code,
-                    rate:         curr.rate,
-                    symbol:       curr.symbol,
-                },
-            });
-        } catch(e) {
-            console.error('Capture failed for', product.sku, e);
-        }
-    }
-
-    setProgress(65, 'Uploading to media storage…');
     try {
-        const res  = await fetch('/admin/promo-templates/save-images', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': CSRF,
-                Accept:         'application/json',
-            },
-            body: JSON.stringify({ items }),
-        });
-        const data = await res.json();
-        if (!data.success) throw new Error(data.message || 'Save failed');
+        for (let i = 0; i < total; i++) {
+            const product = loadedProducts[i];
+            setProgress(Math.round((i / total) * 100), `Capturing & saving ${i + 1} / ${total}`);
 
-        savedItems = data.saved;
-        setProgress(100, `Saved ${data.count} image(s)`);
+            try {
+                const imageDataUrl = await captureCard(product, curr);
+                batch.push({
+                    sku:          product.sku,
+                    imageDataUrl,
+                    product: {
+                        sku:          product.sku,
+                        name:         product.name,
+                        description:  product.description ?? '',
+                        slug:         product.slug ?? '',
+                        price:        product.price,
+                        sale_price:   product.sale_price,
+                        stock_status: product.stock_status ?? 'in_stock',
+                        brand:        product.brand?.name ?? '{{ config("app.name") }}',
+                        currency:     curr.code,
+                        rate:         curr.rate,
+                        symbol:       curr.symbol,
+                    },
+                });
+            } catch (e) {
+                failed++;
+                console.error('Capture failed for', product.sku, e);
+            }
+
+            if (batch.length >= SAVE_BATCH_SIZE || (i === total - 1 && batch.length)) {
+                const saved = await uploadBatch(batch);
+                savedItems.push(...saved);
+                batch = [];
+            }
+        }
+
+        if (!savedItems.length) throw new Error('No banners could be captured');
+
+        setProgress(100, `Saved ${savedItems.length} image(s)`);
         hideLoading();
 
-        savedItems.forEach((_, i) => {
-            const card = previewGrid.children[i];
-            if (card) {
+        savedItems.forEach(item => {
+            const idx = loadedProducts.findIndex(p => String(p.sku).replace(/[^a-zA-Z0-9\-_]/g, '') === item.sku);
+            const card = previewGrid.children[idx];
+            if (card && !card.querySelector('.save-status')) {
                 const badge = document.createElement('span');
                 badge.className = 'save-status badge bg-success';
                 badge.textContent = '✓ Saved';
@@ -634,8 +736,8 @@ btnSave.addEventListener('click', async () => {
 
         btnSave.classList.add('d-none');
         btnDownloadCsv.classList.remove('d-none');
-        setStatus(`<i class="bi bi-check-circle me-1"></i>Saved ${data.count} image(s) to media storage`, 'success');
-    } catch(e) {
+        setStatus(`<i class="bi bi-check-circle me-1"></i>Saved ${savedItems.length} full banner image(s) to media storage` + (failed ? ` — ${failed} failed to capture` : ''), failed ? 'warning' : 'success');
+    } catch (e) {
         hideLoading();
         setStatus(`<i class="bi bi-x-circle me-1"></i>Save failed: ${e.message}`, 'danger');
     }

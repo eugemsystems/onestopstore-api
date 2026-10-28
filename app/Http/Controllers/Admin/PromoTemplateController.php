@@ -204,7 +204,16 @@ class PromoTemplateController extends Controller
             }
         }
 
-        return view('admin.promo-templates.generate-sku', compact('template', 'templates', 'bgUrl', 'bgBase64', 'templateCss'));
+        // The template's own card markup (body minus scripts/comments). The page clones this
+        // for every product so the saved image is exactly the card designed in the template.
+        $templateBodyHtml = '';
+        if ($template->html_content && preg_match('/<body[^>]*>(.*)<\/body>/is', $template->html_content, $bodyMatch)) {
+            $body = preg_replace('/<script\b[^>]*>.*?<\/script>/is', '', $bodyMatch[1]);
+            $body = preg_replace('/<!--.*?-->/s', '', $body);
+            $templateBodyHtml = trim($body);
+        }
+
+        return view('admin.promo-templates.generate-sku', compact('template', 'templates', 'bgUrl', 'bgBase64', 'templateCss', 'templateBodyHtml'));
     }
 
     /**
@@ -375,9 +384,12 @@ class PromoTemplateController extends Controller
             $homeDir = getenv('USERPROFILE') ?: getenv('HOME') ?: (getenv('HOMEDRIVE') . getenv('HOMEPATH'));
             // Use python3 on Linux/Docker, python on Windows
             $pythonBin = PHP_OS_FAMILY === 'Windows' ? 'python' : 'python3';
-            $process = new \Symfony\Component\Process\Process([
-                $pythonBin, $scriptPath, $tmpInput, $tmpOutput
-            ]);
+            // Low CPU priority on Linux so rembg can't starve the web workers
+            $command = [$pythonBin, $scriptPath, $tmpInput, $tmpOutput];
+            if (PHP_OS_FAMILY !== 'Windows') {
+                $command = array_merge(['nice', '-n', '19'], $command);
+            }
+            $process = new \Symfony\Component\Process\Process($command);
             // Pass home dir env vars so Python's ~ expansion works and rembg finds the model
             // On Linux/Docker: use /tmp/.u2net (www-data can't write to /var/www)
             $u2netHome = PHP_OS_FAMILY === 'Windows'
@@ -390,7 +402,19 @@ class PromoTemplateController extends Controller
                 'NUMBA_CACHE_DIR'=> sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'numba_cache',
             ]));
             $process->setTimeout(120);
-            $process->run();
+
+            // Only ONE rembg (ML model, CPU/RAM heavy) at a time across the whole server
+            try {
+                \Illuminate\Support\Facades\Cache::lock('promo-rembg', 130)->block(100, function () use ($process) {
+                    $process->run();
+                });
+            } catch (\Illuminate\Contracts\Cache\LockTimeoutException $e) {
+                @unlink($tmpInput);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Background removal is busy — try again shortly.',
+                ], 429);
+            }
 
             // Clean up temp input
             @unlink($tmpInput);
