@@ -1268,6 +1268,8 @@ class ProductController extends Controller
                     'sale_price' => $product->sale_price,
                     'thumbnail'  => $thumbnail,
                     'rating'        => $product->reviews_avg_rating !== null ? round((float) $product->reviews_avg_rating, 1) : null,
+                    'reviews_avg_rating' => $product->reviews_avg_rating !== null ? round((float) $product->reviews_avg_rating, 1) : null,
+                    'rating_count'  => $product->reviews_avg_rating !== null ? round((float) $product->reviews_avg_rating, 1) : 0,
                     'reviews_count' => (int) $product->reviews_count,
                 ];
             });

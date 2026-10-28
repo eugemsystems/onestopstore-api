@@ -162,10 +162,58 @@ class PromoTemplateController extends Controller
     /**
      * Show the SKU-based single-product banner generator page
      */
+    /**
+     * Serve the template's saved HTML exactly as stored. The SKU generator loads it in a hidden
+     * same-origin frame and runs the template's own renderProducts() to draw the real card.
+     */
+    public function raw($id)
+    {
+        $template = PromoTemplate::findOrFail($id);
+        $html = (string) $template->html_content;
+
+        // Flyer scripts look up toolbar elements (#status, #btnLoad, #skus, #currency …) that the
+        // main generate page normally supplies. Inject hidden stand-ins for any id the scripts
+        // reference but the markup doesn't contain, so the script doesn't crash before it
+        // registers renderProducts().
+        preg_match_all('/getElementById\(\s*[\'"]([A-Za-z][\w\-]*)[\'"]\s*\)/', $html, $m);
+        $stubs = '';
+        foreach (array_unique($m[1]) as $elId) {
+            if (preg_match('/\sid\s*=\s*["\']' . preg_quote($elId, '/') . '["\']/', $html)) {
+                continue;
+            }
+            $stubs .= match (true) {
+                (bool) preg_match('/currency/i', $elId)       => '<select id="' . $elId . '"><option value="USD|$|1">USD ($)</option></select>',
+                (bool) preg_match('/sku|search|input/i', $elId) => '<input id="' . $elId . '" value="">',
+                default                                        => '<div id="' . $elId . '"></div>',
+            };
+        }
+        if ($stubs !== '') {
+            $stubs = '<div style="display:none" aria-hidden="true">' . $stubs . '</div>';
+            $html = preg_match('/<body[^>]*>/i', $html)
+                ? preg_replace('/<body[^>]*>/i', '$0' . $stubs, $html, 1)
+                : $stubs . $html;
+        }
+
+        return response($html, 200, [
+            'Content-Type'  => 'text/html; charset=UTF-8',
+            'Cache-Control' => 'no-store',
+        ]);
+    }
+
     public function generateSku($id)
     {
         $template  = PromoTemplate::findOrFail($id);
         $templates = PromoTemplate::where('status', 1)->orderBy('name')->get(['id','name','preview_image']);
+
+        // Flyer-style templates (header/footer + a grid filled by renderProducts) are rendered by the
+        // template itself in a frame — none of the banner-only extraction below is needed for them.
+        $usesTemplateCards = str_contains((string) $template->html_content, 'renderProducts');
+        if ($usesTemplateCards) {
+            $bgUrl = $bgBase64 = null;
+            $templateCss = $templateBodyHtml = '';
+
+            return view('admin.promo-templates.generate-sku', compact('template', 'templates', 'bgUrl', 'bgBase64', 'templateCss', 'templateBodyHtml', 'usesTemplateCards'));
+        }
 
         // Extract the background-image URL from the template's stored CSS
         $bgUrl    = null;
@@ -213,7 +261,7 @@ class PromoTemplateController extends Controller
             $templateBodyHtml = trim($body);
         }
 
-        return view('admin.promo-templates.generate-sku', compact('template', 'templates', 'bgUrl', 'bgBase64', 'templateCss', 'templateBodyHtml'));
+        return view('admin.promo-templates.generate-sku', compact('template', 'templates', 'bgUrl', 'bgBase64', 'templateCss', 'templateBodyHtml') + ['usesTemplateCards' => false]);
     }
 
     /**

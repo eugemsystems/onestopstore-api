@@ -662,7 +662,7 @@ btnDownloadCsv.addEventListener('click', () => {
         const code  = product.currency ?? 'USD';
         const price = product.price      ? ((parseFloat(product.price)      * rate).toFixed(2) + ' ' + code) : '';
         const saleP = product.sale_price ? ((parseFloat(product.sale_price) * rate).toFixed(2) + ' ' + code) : '';
-        const link  = `${frontendUrl}/en/product/${product.slug || sku}`;
+        const link  = `${frontendUrl}/product/${product.slug || sku}`;
         return [
             csv(product.sku), csv(product.name), csv(product.description),
             csv(link), csv(url), csv(product.stock_status ?? 'in_stock'),

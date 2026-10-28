@@ -895,6 +895,7 @@ Route::prefix('vendor-applications')->name('vendor-applications.')->group(functi
             Route::post('/{id}/duplicate', [\App\Http\Controllers\Admin\PromoTemplateController::class, 'duplicate'])->name('duplicate');
             Route::get('/{id}/generate', [\App\Http\Controllers\Admin\PromoTemplateController::class, 'generate'])->name('generate');
             Route::get('/{id}/generate-sku', [\App\Http\Controllers\Admin\PromoTemplateController::class, 'generateSku'])->name('generate-sku');
+            Route::get('/{id}/raw', [\App\Http\Controllers\Admin\PromoTemplateController::class, 'raw'])->name('raw');
             Route::get('/{id}/generate-sku-bg', [\App\Http\Controllers\Admin\PromoTemplateController::class, 'generateSkuBg'])->name('generate-sku-bg');
         });
 

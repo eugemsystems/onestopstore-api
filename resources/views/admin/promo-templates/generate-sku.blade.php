@@ -164,6 +164,11 @@
 
 <!-- Hidden container for full-res banner rendering (captured by html2canvas) -->
 <div id="renderPool" style="position:absolute;left:-9999px;top:0;pointer-events:none;"></div>
+@if(!empty($usesTemplateCards))
+<!-- The saved template, loaded as-is. Its own renderProducts() draws the card we capture. -->
+<iframe id="tplFrame" src="{{ route('admin.promo-templates.raw', $template->id) }}"
+        style="position:absolute;left:-12000px;top:0;width:1500px;height:2600px;border:0;pointer-events:none;" tabindex="-1" aria-hidden="true"></iframe>
+@endif
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
@@ -193,6 +198,15 @@ const loadingProgress=document.getElementById('loadingProgress');
 let loadedProducts = [];
 let savedItems     = [];
 let bgDataUrl      = null;   // cached base64 background
+const USES_TEMPLATE_CARDS = {{ !empty($usesTemplateCards) ? 'true' : 'false' }};
+let TEMPLATE_CARD_MODE = false;
+// Buttons / action icons that exist on the live card but must NOT appear in the saved image.
+// Add data-no-capture (or class no-capture) to anything else in your template to hide it too.
+const CARD_HIDE_SELECTOR = [
+    'button', '.btn', '[role="button"]', '[data-no-capture]', '.no-capture',
+    '[class*="add-to-cart" i]', '[class*="addtocart" i]', '[class*="wishlist" i]', '[class*="compare" i]',
+    '[class*="quick-view" i]', '[class*="quickview" i]', '[class*="card-action" i]'
+].join(',');
 
 // ── Utilities ──────────────────────────────────────────────────────────────
 function setStatus(msg, type = 'info') {
@@ -434,15 +448,103 @@ function buildFallbackBannerNode(product, curr, bgData, imgDataUrl) {
     return div;
 }
 
+// ── Template-card mode: run the template's own renderProducts() and capture its card ──────
+function tplFrameReady() {
+    return new Promise(resolve => {
+        const frame = document.getElementById('tplFrame');
+        if (!frame) return resolve(false);
+        const started = Date.now();
+        (function poll() {
+            const win = frame.contentWindow;
+            if (win && typeof win.renderProducts === 'function' && win.document.getElementById('grid')) return resolve(true);
+            if (Date.now() - started > 25000) return resolve(false);
+            setTimeout(poll, 150);
+        })();
+    });
+}
+
+async function renderTemplateCard(product, curr, imgDataUrl) {
+    const frame = document.getElementById('tplFrame');
+    const win = frame.contentWindow, doc = frame.contentDocument;
+
+    const thumb = imgDataUrl ? { id: 0, image_url: imgDataUrl, original_url: imgDataUrl, takealot_url: imgDataUrl } : null;
+    // Same shape generate.blade.php hands to the template: prices already converted to the chosen currency
+    const p = Object.assign({}, product, {
+        price:           product.price      ? product.price * curr.rate : 0,
+        sale_price:      product.sale_price ? product.sale_price * curr.rate : null,
+        original_price:      product.price,
+        original_sale_price: product.sale_price,
+        currency_symbol: curr.symbol,
+        currency_code:   curr.code,
+        thumbnail:         thumb,
+        product_thumbnail: thumb,
+    });
+
+    win.renderProducts([p], {});               // template's own default layout → real card size
+    const card = doc.querySelector('#grid .card') || doc.querySelector('.card');
+    if (!card) throw new Error('The template did not draw a product card');
+
+    await Promise.all(Array.from(card.querySelectorAll('img')).map(img =>
+        img.complete ? null : new Promise(r => { img.onload = img.onerror = r; })));
+    await new Promise(r => setTimeout(r, 150));
+
+    const canvas = await html2canvas(card, {
+        scale:           2,
+        useCORS:         true,
+        allowTaint:      false,
+        backgroundColor: null,
+        logging:         false,
+        ignoreElements:  el => el.matches && el.matches(CARD_HIDE_SELECTOR),
+        onclone: clonedDoc => clonedDoc.querySelectorAll(CARD_HIDE_SELECTOR).forEach(e => e.remove()),
+    });
+    return canvas.toDataURL('image/webp', 0.9);
+}
+
+function addTemplateCardPreview(product, i) {
+    const card = document.createElement('div');
+    card.className = 'banner-card';
+    card.dataset.index = i;
+    card.innerHTML = `
+        <img src="${product._cardDataUrl}" alt="" style="display:block;width:320px;max-width:100%;">
+        <div class="edit-toolbar">
+            <button class="btn btn-sm btn-info btn-edit-replace" title="Replace image"><i class="bi bi-upload"></i> Replace image</button>
+        </div>
+        <div class="banner-label"><strong>${escHtml(product.sku)}</strong> — ${escHtml((product.name || '').substring(0, 50))}</div>
+    `;
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file'; fileInput.accept = 'image/*'; fileInput.style.display = 'none';
+    card.appendChild(fileInput);
+    card.querySelector('.btn-edit-replace').addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', async () => {
+        const file = fileInput.files[0];
+        if (!file) return;
+        const dataUrl = await new Promise(resolve => { const r = new FileReader(); r.onload = () => resolve(r.result); r.readAsDataURL(file); });
+        product._imgDataUrl = dataUrl;
+        product._cardDataUrl = await renderTemplateCard(product, getCurrency(), dataUrl);
+        card.querySelector('img').src = product._cardDataUrl;
+        fileInput.value = '';
+    });
+    previewGrid.appendChild(card);
+}
+
 // ── Render previews ────────────────────────────────────────────────────────
 async function renderPreviews(products) {
     const curr = getCurrency();
     const bg   = getBgUrl();
 
+    // Flyer templates: wait for the template's own renderProducts() to be available
+    TEMPLATE_CARD_MODE = USES_TEMPLATE_CARDS && await tplFrameReady();
+    if (USES_TEMPLATE_CARDS && !TEMPLATE_CARD_MODE) {
+        hideLoading();
+        throw new Error('The template did not finish loading (no renderProducts found). Open the template and check its script.');
+    }
+
     // Background is already base64 from PHP — use directly, skip toDataUrl()
     bgDataUrl = getBgUrl();
-    measureBanner();
-    PREVIEW_SCALE = Math.min(0.5, 300 / BANNER_W);
+    if (!TEMPLATE_CARD_MODE) {
+        measureBanner();
+        PREVIEW_SCALE = Math.min(0.5, 300 / BANNER_W);
+    }
 
     previewGrid.innerHTML = '';
 
@@ -482,6 +584,13 @@ async function renderPreviews(products) {
 
         // Store on product for reuse in save
         product._imgDataUrl = imgDataUrl;
+
+        if (TEMPLATE_CARD_MODE) {
+            setProgress(35 + Math.round((i / products.length) * 60), `Drawing card ${i+1}/${products.length}…`);
+            product._cardDataUrl = await renderTemplateCard(product, curr, imgDataUrl);
+            addTemplateCardPreview(product, i);
+            continue;
+        }
 
         const bannerNode = buildBannerNode(product, curr, bgDataUrl, imgDataUrl);
 
@@ -691,6 +800,7 @@ btnGenerate.addEventListener('click', async () => {
 const SAVE_BATCH_SIZE = 5;
 
 async function captureCard(product, curr) {
+    if (TEMPLATE_CARD_MODE) return product._cardDataUrl;   // exactly what the preview shows
     const node = buildBannerNode(product, curr, bgDataUrl, product._imgDataUrl || null);
     renderPool.appendChild(node);
     try {
@@ -811,7 +921,7 @@ btnDownloadCsv.addEventListener('click', () => {
         const code  = product.currency ?? 'USD';
         const price = product.price      ? ((parseFloat(product.price)      * rate).toFixed(2) + ' ' + code) : '';
         const saleP = product.sale_price ? ((parseFloat(product.sale_price) * rate).toFixed(2) + ' ' + code) : '';
-        const link  = `${frontendUrl}/en/product/${product.slug || sku}`;
+        const link  = `${frontendUrl}/product/${product.slug || sku}`;
         return [
             csv(product.sku), csv(product.name), csv(product.description),
             csv(link), csv(url), csv(product.stock_status ?? 'in_stock'),
