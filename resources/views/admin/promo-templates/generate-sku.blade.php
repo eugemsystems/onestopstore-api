@@ -508,9 +508,41 @@ async function renderTemplateCard(product, curr, imgDataUrl) {
         force('justify-self', 'start');
     }
 
+    // Rating row: the template's card has none, so add one under the product name
+    // (skipped if the template already draws its own rating element).
+    const ratingVal = parseFloat(product.rating);
+    if (ratingVal > 0 && product.reviews_count > 0 && !card.querySelector('.rating, .product-rating, .stars, [class*="rating" i]')) {
+        const nameEl = card.querySelector('.name');
+        const cs = nameEl ? doc.defaultView.getComputedStyle(nameEl) : doc.defaultView.getComputedStyle(card);
+        const size = Math.max(12, Math.round(parseFloat(cs.fontSize) * 0.85));
+        const row = doc.createElement('div');
+        row.className = 'promo-rating';
+        row.style.cssText = `display:flex;align-items:center;gap:6px;margin:4px 0 2px;font-size:${size}px;font-weight:700;color:${cs.color};line-height:1.2;`;
+        row.innerHTML = `<span style="color:#f5a623;font-size:1.3em;line-height:1;">&#9733;</span>`
+            + `<span>${ratingVal.toFixed(1)}</span>`
+            + `<span style="opacity:.65;font-weight:600;">(${product.reviews_count})</span>`;
+        if (nameEl) nameEl.insertAdjacentElement('afterend', row);
+        else (card.querySelector('.card-content') || card).appendChild(row);
+    }
+
     await Promise.all(Array.from(card.querySelectorAll('img')).map(img =>
         img.complete ? null : new Promise(r => { img.onload = img.onerror = r; })));
     await new Promise(r => setTimeout(r, 150));
+
+    // The floating sale badge must never cover the product image: if they overlap
+    // (typical once the card is narrowed), put the badge in the flow above the image.
+    const badge = card.querySelector('.badge');
+    const pimg  = card.querySelector('.product-img') || card.querySelector('.image-container img');
+    if (badge && pimg) {
+        const b = badge.getBoundingClientRect(), r = pimg.getBoundingClientRect();
+        const overlap = !(b.right <= r.left || b.left >= r.right || b.bottom <= r.top || b.top >= r.bottom);
+        if (overlap) {
+            const f = (prop, val) => badge.style.setProperty(prop, val, 'important');
+            f('position', 'relative'); f('left', 'auto'); f('top', 'auto');
+            f('align-self', 'flex-start'); f('margin', '12px 0 0 12px'); f('flex-shrink', '0');
+            await new Promise(r => setTimeout(r, 60));
+        }
+    }
 
     const canvas = await html2canvas(card, {
         scale:           2,
