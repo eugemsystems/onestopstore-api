@@ -495,13 +495,17 @@ async function renderTemplateCard(product, curr, imgDataUrl) {
     // The card is built with flex/auto sizing, so its content reflows to the new width.
     const pct = Math.max(25, Math.min(100, parseInt(document.getElementById('cardWidthPct')?.value, 10) || 50));
     const naturalW = card.getBoundingClientRect().width;
-    if (pct < 100 && naturalW > 0) {
-        card.style.width     = Math.round(naturalW * pct / 100) + 'px';
-        card.style.minWidth  = '0';
-        card.style.maxWidth  = 'none';
-        card.style.height    = 'auto';
-        card.style.alignSelf = 'start';       // don't stretch to the (taller) grid row
-        card.style.justifySelf = 'start';
+    const targetW  = pct < 100 && naturalW > 0 ? Math.round(naturalW * pct / 100) : 0;
+    if (targetW) {
+        // !important so template rules (width/min-width/max-width, even !important ones) can't win
+        const force = (prop, val) => card.style.setProperty(prop, val, 'important');
+        force('box-sizing', 'border-box');
+        force('width',      targetW + 'px');
+        force('min-width',  '0');
+        force('max-width',  targetW + 'px');
+        force('height',     'auto');
+        force('align-self',   'start');       // don't stretch to the (taller) grid row
+        force('justify-self', 'start');
     }
 
     await Promise.all(Array.from(card.querySelectorAll('img')).map(img =>
@@ -517,8 +521,17 @@ async function renderTemplateCard(product, curr, imgDataUrl) {
         ignoreElements:  el => el.matches && el.matches(CARD_HIDE_SELECTOR),
         onclone: clonedDoc => clonedDoc.querySelectorAll(CARD_HIDE_SELECTOR).forEach(e => e.remove()),
     });
-    product._cardCssWidth = Math.round(canvas.width / 2);
-    return canvas.toDataURL('image/webp', 0.9);
+    // Final guard: whatever the template did, never save wider than the requested width.
+    let out = canvas;
+    if (targetW && canvas.width > targetW * 2 + 4) {
+        console.warn(`Card rendered ${Math.round(canvas.width / 2)}px wide; scaling to the requested ${targetW}px`);
+        out = document.createElement('canvas');
+        out.width  = targetW * 2;
+        out.height = Math.round(canvas.height * (targetW * 2) / canvas.width);
+        out.getContext('2d').drawImage(canvas, 0, 0, out.width, out.height);
+    }
+    product._cardCssWidth = Math.round(out.width / 2);
+    return out.toDataURL('image/webp', 0.9);
 }
 
 function addTemplateCardPreview(product, i) {
@@ -530,7 +543,7 @@ function addTemplateCardPreview(product, i) {
         <div class="edit-toolbar">
             <button class="btn btn-sm btn-info btn-edit-replace" title="Replace image"><i class="bi bi-upload"></i> Replace image</button>
         </div>
-        <div class="banner-label"><strong>${escHtml(product.sku)}</strong> — ${escHtml((product.name || '').substring(0, 50))}</div>
+        <div class="banner-label"><strong>${escHtml(product.sku)}</strong> — ${escHtml((product.name || '').substring(0, 50))}<br><span class="text-muted">Saved size: ${product._cardCssWidth * 2} px wide</span></div>
     `;
     const fileInput = document.createElement('input');
     fileInput.type = 'file'; fileInput.accept = 'image/*'; fileInput.style.display = 'none';
