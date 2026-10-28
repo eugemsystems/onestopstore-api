@@ -114,7 +114,7 @@ class CartRepository extends BaseRepository
         try {
 
             if ($this->isStockAvailable($request, $request->quantity)) {
-                $cart = $this->model->findOrFail($request->id);
+                $cart = $this->model->where('consumer_id', Helpers::getCurrentUserId())->findOrFail($request->id);
                 $singleProductPrice = Helpers::getSalePrice($request);
                 $subTotal = Helpers::getSubTotal($singleProductPrice, $request->quantity);
 
@@ -245,7 +245,7 @@ class CartRepository extends BaseRepository
     {
         try {
 
-            return $this->model->findOrFail($id)->destroy($id);
+            return $this->model->where('consumer_id', Helpers::getCurrentUserId())->findOrFail($id)->delete();
 
         } catch (Exception $e){
 

@@ -44,7 +44,11 @@ class Cart extends Model
     {
         parent::boot();
         static::saving(function ($model) {
-            $model->consumer_id = Helpers::getCurrentUserId();
+            // Only stamp the owner on creation; re-stamping on every save would
+            // hand a row to whoever (or whatever job) happens to save it.
+            if (!$model->exists || empty($model->consumer_id)) {
+                $model->consumer_id = Helpers::getCurrentUserId();
+            }
         });
     }
 
