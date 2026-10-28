@@ -32,7 +32,14 @@ class localization
      */
     protected function parseLocale($acceptLanguage)
     {
-        $locales = explode(',', $acceptLanguage);
-        return strtolower(substr($locales[0], 0, 2));
+        // Walk the list so "*, en" or "*;q=0.5" still resolves; skip wildcards/garbage.
+        foreach (explode(',', (string) $acceptLanguage) as $part) {
+            $tag = strtolower(trim(explode(';', $part)[0]));
+            if (preg_match('/^([a-z]{2})(?:[-_][a-z0-9]+)*$/', $tag, $m)) {
+                return $m[1];
+            }
+        }
+
+        return config('app.locale', 'en');
     }
 }
