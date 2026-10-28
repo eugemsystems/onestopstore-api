@@ -124,6 +124,13 @@
                 <select class="form-select" id="currencySelect">
                     <option value="USD|$|1">USD ($)</option>
                 </select>
+                @if(!empty($usesTemplateCards))
+                <div class="mt-2 d-flex align-items-center gap-2">
+                    <label class="form-label fw-semibold mb-0" for="cardWidthPct" style="font-size:13px;"><i class="bi bi-arrows-collapse-vertical me-1" style="transform:rotate(90deg);display:inline-block;"></i>Card width</label>
+                    <input type="number" class="form-control form-control-sm" id="cardWidthPct" value="50" min="25" max="100" step="5" style="width:80px;">
+                    <span class="text-muted" style="font-size:12px;">% of the template card</span>
+                </div>
+                @endif
                 <div class="form-check mt-2">
                     <input class="form-check-input" type="checkbox" id="removeBgToggle">
                     <label class="form-check-label" for="removeBgToggle" style="font-size:12px;">
@@ -484,6 +491,19 @@ async function renderTemplateCard(product, curr, imgDataUrl) {
     const card = doc.querySelector('#grid .card') || doc.querySelector('.card');
     if (!card) throw new Error('The template did not draw a product card');
 
+    // Facebook-friendly narrow card: shrink the WIDTH (default 50% of the template card).
+    // The card is built with flex/auto sizing, so its content reflows to the new width.
+    const pct = Math.max(25, Math.min(100, parseInt(document.getElementById('cardWidthPct')?.value, 10) || 50));
+    const naturalW = card.getBoundingClientRect().width;
+    if (pct < 100 && naturalW > 0) {
+        card.style.width     = Math.round(naturalW * pct / 100) + 'px';
+        card.style.minWidth  = '0';
+        card.style.maxWidth  = 'none';
+        card.style.height    = 'auto';
+        card.style.alignSelf = 'start';       // don't stretch to the (taller) grid row
+        card.style.justifySelf = 'start';
+    }
+
     await Promise.all(Array.from(card.querySelectorAll('img')).map(img =>
         img.complete ? null : new Promise(r => { img.onload = img.onerror = r; })));
     await new Promise(r => setTimeout(r, 150));
@@ -497,6 +517,7 @@ async function renderTemplateCard(product, curr, imgDataUrl) {
         ignoreElements:  el => el.matches && el.matches(CARD_HIDE_SELECTOR),
         onclone: clonedDoc => clonedDoc.querySelectorAll(CARD_HIDE_SELECTOR).forEach(e => e.remove()),
     });
+    product._cardCssWidth = Math.round(canvas.width / 2);
     return canvas.toDataURL('image/webp', 0.9);
 }
 
@@ -505,7 +526,7 @@ function addTemplateCardPreview(product, i) {
     card.className = 'banner-card';
     card.dataset.index = i;
     card.innerHTML = `
-        <img src="${product._cardDataUrl}" alt="" style="display:block;width:320px;max-width:100%;">
+        <img src="${product._cardDataUrl}" alt="" style="display:block;width:${product._cardCssWidth || 320}px;max-width:100%;">
         <div class="edit-toolbar">
             <button class="btn btn-sm btn-info btn-edit-replace" title="Replace image"><i class="bi bi-upload"></i> Replace image</button>
         </div>
@@ -522,6 +543,7 @@ function addTemplateCardPreview(product, i) {
         product._imgDataUrl = dataUrl;
         product._cardDataUrl = await renderTemplateCard(product, getCurrency(), dataUrl);
         card.querySelector('img').src = product._cardDataUrl;
+        card.querySelector('img').style.width = (product._cardCssWidth || 320) + 'px';
         fileInput.value = '';
     });
     previewGrid.appendChild(card);
