@@ -21,6 +21,9 @@
 # commit with `git am --abort`, leaves the repo clean, pushes nothing for that direction and
 # tells you which commit/files conflict so you can port it by hand.
 #
+# A commit whose message has a line "Sync-Skip: true" is never synced (used for commits that were
+# adapted by hand for just one of the repos).
+#
 # Env overrides: SYNC_REPO_A, SYNC_REPO_B, SYNC_SINCE, SYNC_REMOTE, SYNC_BRANCH
 #
 set -u
@@ -84,6 +87,9 @@ sync_one_way() {   # sync_one_way SRC DST
     [ -z "$sha" ] && continue
     key="$ts|$subject"
     if printf '%s\n' "$dst_keys" | grep -qxF -- "$key"; then continue; fi
+
+    # Commits adapted by hand for one repo carry a "Sync-Skip: true" trailer -> never auto-sync them
+    if git -C "$src" log -1 --format=%B "$sha" | grep -qi '^Sync-Skip:'; then skipped=$((skipped+1)); continue; fi
 
     # Commit that only touches excluded files (.env, conf/, …) -> nothing to sync
     if [ -z "$(git -C "$src" diff-tree --no-commit-id --name-only -r "$sha" -- "${PATHSPEC[@]}")" ]; then
