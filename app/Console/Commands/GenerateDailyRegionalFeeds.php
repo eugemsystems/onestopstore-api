@@ -3,13 +3,16 @@
 namespace App\Console\Commands;
 
 use App\Models\Currency;
+use App\Models\CustomFeedDefinition;
 use App\Models\DailyFeedRun;
 use App\Models\DailyFeedSetting;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use App\Services\CurrencyDetectionService;
+use App\Services\CustomFeedGenerator;
 
 /**
  * Generates the 4 daily regional Google Merchant feeds and writes them to
@@ -56,10 +59,10 @@ use App\Services\CurrencyDetectionService;
 class GenerateDailyRegionalFeeds extends Command
 {
     protected $signature = 'feed:daily-regional
-                            {--only=* : Restrict to specific file keys (global_usd, global_zmw, zimbabwe_usd, zambia_zmw)}
+                            {--only=* : Restrict to specific file keys (global_usd, global_zmw, zimbabwe_usd, zambia_zmw, custom)}
                             {--batch= : Batch id to group this run\'s rows under (auto-generated if omitted)}';
 
-    protected $description = 'Generate the 4 daily regional Google Merchant XML feeds as static public files';
+    protected $description = 'Generate the 4 daily regional Google Merchant XML feeds (and all custom feed links) as static public files';
 
     private string $frontendUrl;
     private string $zmFrontendUrl;
@@ -74,7 +77,7 @@ class GenerateDailyRegionalFeeds extends Command
 
     public function handle(): void
     {
-        $rawFrontend = rtrim(env('FRONTEND_URL', 'https://raines.africa/en'), '/');
+        $rawFrontend = rtrim(env('FRONTEND_URL', 'https://onestopstore.co.zw/en'), '/');
         $frontendRoot = preg_replace('#/en$#', '', $rawFrontend);
         $this->frontendUrl = $frontendRoot . '/en';
         $this->zmFrontendUrl = $frontendRoot . '/zm';
@@ -83,6 +86,7 @@ class GenerateDailyRegionalFeeds extends Command
         $batchId = $this->option('batch') ?: uniqid('daily_feed_', true);
 
         $keys = empty($only) ? array_keys($this->fileDefinitions) : array_intersect(array_keys($this->fileDefinitions), $only);
+        $runCustom = empty($only) || in_array('custom', $only, true);
 
         foreach ($keys as $key) {
             $def = $this->fileDefinitions[$key];
@@ -93,7 +97,46 @@ class GenerateDailyRegionalFeeds extends Command
             }
         }
 
+        // Custom Feed Links (admin: Daily Regional Feeds → Custom Feed Links) ride on the same
+        // schedule, so price/stock changes reach them without clicking "Run Now" on each one.
+        if ($runCustom) {
+            $this->regenerateCustomFeeds();
+        }
+
         $this->info("Batch {$batchId} complete.");
+    }
+
+    /**
+     * Rebuild every custom feed link. One feed failing never stops the others, and a feed that
+     * is already being generated (e.g. an admin clicked "Run Now") is skipped, not raced.
+     */
+    private function regenerateCustomFeeds(): void
+    {
+        if (!Schema::hasTable('custom_feed_definitions')) {
+            return;
+        }
+
+        $generator = app(CustomFeedGenerator::class);
+        $total = CustomFeedDefinition::count();
+        $this->line("[Custom feeds] regenerating {$total} feed(s)…");
+
+        foreach (CustomFeedDefinition::orderBy('id')->cursor() as $feed) {
+            $lock = Cache::lock("feed:custom:lock:{$feed->id}", 10800);
+            if (!$lock->get()) {
+                $this->warn("[Custom: {$feed->name}] skipped — already being generated.");
+                continue;
+            }
+
+            try {
+                $run = $generator->generate($feed);
+                $this->line("[Custom: {$feed->name}] {$run->status} — {$run->records_written} products.");
+            } catch (\Throwable $e) {
+                Log::error('feed:daily-regional custom feed failed', ['feed' => $feed->slug, 'error' => $e->getMessage()]);
+                $this->error("[Custom: {$feed->name}] failed: {$e->getMessage()}");
+            } finally {
+                $lock->release();
+            }
+        }
     }
 
     private function generateFile(string $key, array $def, string $batchId): void
@@ -177,7 +220,7 @@ class GenerateDailyRegionalFeeds extends Command
             fwrite($fp, '<?xml version="1.0" encoding="UTF-8"?>' . "\n");
             fwrite($fp, '<rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">' . "\n");
             fwrite($fp, "<channel>\n");
-            fwrite($fp, "  <title>Raines Africa Products - {$this->cleanXml($label)}</title>\n");
+            fwrite($fp, "  <title>One Stop Store Products - {$this->cleanXml($label)}</title>\n");
             fwrite($fp, "  <link>{$this->frontendUrl}</link>\n");
             fwrite($fp, "  <description>Daily regional product feed - {$this->cleanXml($label)}</description>\n");
 
@@ -381,7 +424,7 @@ class GenerateDailyRegionalFeeds extends Command
                 fwrite($fp, '<?xml version="1.0" encoding="UTF-8"?>' . "\n");
                 fwrite($fp, '<rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">' . "\n");
                 fwrite($fp, "<channel>\n");
-                fwrite($fp, "  <title>Raines Africa Products - {$this->cleanXml($label)} (part {$i}/{$shardCount})</title>\n");
+                fwrite($fp, "  <title>One Stop Store Products - {$this->cleanXml($label)} (part {$i}/{$shardCount})</title>\n");
                 fwrite($fp, "  <link>{$this->frontendUrl}</link>\n");
                 fwrite($fp, "  <description>Daily regional product feed - {$this->cleanXml($label)}, part {$i} of {$shardCount}</description>\n");
 
@@ -527,15 +570,14 @@ class GenerateDailyRegionalFeeds extends Command
         }
         $description = $this->cleanXml($description);
 
-        $link = $currency === 'ZMW'
-            ? "{$this->zmFrontendUrl}/product/{$product->slug}"
-            : "{$this->frontendUrl}/product/{$product->slug}?currency={$currency}";
+        // Same product-link convention as feed:google-merchant: no locale prefix, no ?currency
+        $link = \App\Helpers\Helpers::productPageUrl($product->slug);
 
         $rawPrice = (float) $product->price;
         $convertedPrice = $currency === 'USD' ? $rawPrice : CurrencyDetectionService::convertAmount($rawPrice, $currency);
         $price = number_format($convertedPrice, 2, '.', '') . " {$currency}";
         $availability = $product->stock_status === 'out_of_stock' ? 'out_of_stock' : 'in_stock';
-        $brand = $this->cleanXml($product->brand_name ?: 'Raines Africa');
+        $brand = $this->cleanXml($product->brand_name ?: 'One Stop Store');
         $id = $product->sku ?: "RA-{$product->id}";
 
         fwrite($fp, "  <item>\n");

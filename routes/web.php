@@ -39,6 +39,20 @@ Route::get('/dailyfeeds/{path}', function ($path) {
     ]);
 })->where('path', '.*');
 
+// Custom feed links (admin: Daily Regional Feeds → Custom Feed Links) — admin-picked
+// category slugs + SKUs, generated to a static file the same way as /dailyfeeds above:
+// on creation, via the feed's own "Run Now" button, and by the daily feed cron.
+// A feed with shard_count > 1 is split into N files named {slug}-{n}.xml. The sharded route
+// MUST come before the plain {slug}.xml one so it isn't swallowed by the broader pattern.
+Route::get('/custom-feeds/{slug}-{shard}.xml', [\App\Http\Controllers\CustomFeedController::class, 'showShard'])
+    ->name('custom-feeds.show-shard')
+    ->where('slug', '[A-Za-z0-9\-]+')
+    ->where('shard', '[0-9]+');
+
+Route::get('/custom-feeds/{slug}.xml', [\App\Http\Controllers\CustomFeedController::class, 'show'])
+    ->name('custom-feeds.show')
+    ->where('slug', '[A-Za-z0-9\-]+');
+
 require __DIR__.'/auth.php';
 
 Route::get('/vendor/log-viewer/{path}', function (string $path) {
@@ -435,6 +449,12 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::post('/settings', [\App\Http\Controllers\Admin\AdminDailyFeedController::class, 'updateSettings'])->name('update-settings');
             Route::post('/run-now', [\App\Http\Controllers\Admin\AdminDailyFeedController::class, 'runNow'])->name('run-now');
             Route::get('/status/{batchId}', [\App\Http\Controllers\Admin\AdminDailyFeedController::class, 'status'])->name('status');
+
+            // Custom feed links: admin-picked category slugs + SKUs, static file(s) rebuilt by the
+            // daily feed cron and by each feed's own "Run Now" button
+            Route::post('/custom-feeds', [\App\Http\Controllers\Admin\AdminCustomFeedController::class, 'store'])->name('custom-feeds.store');
+            Route::post('/custom-feeds/{id}/run-now', [\App\Http\Controllers\Admin\AdminCustomFeedController::class, 'runNow'])->name('custom-feeds.run-now');
+            Route::delete('/custom-feeds/{id}', [\App\Http\Controllers\Admin\AdminCustomFeedController::class, 'destroy'])->name('custom-feeds.destroy');
         });
 
         // Promo Templates

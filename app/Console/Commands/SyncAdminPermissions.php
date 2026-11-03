@@ -168,6 +168,9 @@ class SyncAdminPermissions extends Command
                 ['name' => 'daily-feeds.index', 'description' => 'View daily regional feed settings & run history'],
                 ['name' => 'daily-feeds.update-settings', 'description' => 'Change daily regional feed schedule/filters'],
                 ['name' => 'daily-feeds.run-now', 'description' => 'Manually trigger daily regional feed generation'],
+                ['name' => 'daily-feeds.custom-feed-create', 'description' => 'Create custom category/SKU feed links'],
+                ['name' => 'daily-feeds.custom-feed-run', 'description' => 'Manually regenerate a custom category/SKU feed link'],
+                ['name' => 'daily-feeds.custom-feed-delete', 'description' => 'Delete custom category/SKU feed links'],
             ],
 
             'Product Import' => [

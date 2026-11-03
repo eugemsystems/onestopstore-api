@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Models\CustomFeedDefinition;
+use App\Models\Currency;
 use App\Models\DailyFeedRun;
 use App\Models\DailyFeedSetting;
 use Illuminate\Http\Request;
@@ -30,14 +32,22 @@ class AdminDailyFeedController extends BaseAdminController
         $settings = DailyFeedSetting::all_settings();
         $latestRuns = DailyFeedRun::latestPerFile();
         $history = DailyFeedRun::orderByDesc('id')->limit(40)->get();
+        $customFeeds = CustomFeedDefinition::orderByDesc('id')->get();
+        $currencies = Currency::where('status', 1)->orderBy('code')->pluck('code');
+
+        // So the shared Run History table shows a custom feed's own name
+        // instead of its raw slug (file_key) once it has been run.
+        $fileLabels = array_merge(DailyFeedRun::LABELS, $customFeeds->pluck('name', 'slug')->toArray());
 
         return view('admin.daily-feeds.index', [
             'settings' => $settings,
             'latestRuns' => $latestRuns,
             'history' => $history,
-            'fileLabels' => DailyFeedRun::LABELS,
+            'fileLabels' => $fileLabels,
             'shardedKeys' => self::SHARDED_KEYS,
             'pathTemplates' => self::PATH_TEMPLATES,
+            'customFeeds' => $customFeeds,
+            'currencies' => $currencies,
         ]);
     }
 
