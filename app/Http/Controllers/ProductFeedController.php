@@ -129,7 +129,7 @@ class ProductFeedController extends Controller
                             $desc = strip_tags($desc);
                         }
                         $g('description', $desc);
-                        $g('link',        $baseUrl."/product/{$product->slug}");
+                        $g('link',        \App\Helpers\Helpers::productPageUrl($product->slug));
 
                         // price
                         $g('price', $formatPrice($product->price) . $currencySuffix);

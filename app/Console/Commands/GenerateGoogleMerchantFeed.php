@@ -104,7 +104,7 @@ class GenerateGoogleMerchantFeed extends Command
                     $description = substr($description, 0, 4997) . '...';
                 }
 
-                $link  = "{$frontendUrl}/en/product/{$product->slug}?currency={$currency}";
+                $link  = \App\Helpers\Helpers::productPageUrl($product->slug);
                 $price = number_format((float) $product->price, 2, '.', '') . ' USD';
                 $availability = $product->stock_status === 'out_of_stock' ? 'out_of_stock' : 'in_stock';
                 $brand = $this->cleanXml($product->brand_name ?: 'One Stop Store');

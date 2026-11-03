@@ -181,7 +181,7 @@ class GenerateProductFeed extends Command
                     $fmtSale        = $hasSale ? number_format($salePriceRaw * $rate, $decimals, '.', '') : null;
                     $displayPrice   = $hasSale ? $fmtSale : $fmtRegular;
 
-                    $productUrl  = $frontendUrl . '/en/product/' . $product->slug . '?currency=' . $currencyCode;
+                    $productUrl = \App\Helpers\Helpers::productPageUrl($product->slug);
                     $imageUrl    = $product->product_thumbnail ? $product->product_thumbnail->image_url : '';
                     $brandName   = $product->brand && $product->brand->name ? $product->brand->name : config('app.name', 'One Stop Store');
                     $cleanName   = $this->removeControlCharacters($product->name);
@@ -257,7 +257,7 @@ class GenerateProductFeed extends Command
                     $hasSale      = $salePriceRaw > 0;
                     $fmtRegular   = number_format($regularPrice * $rate, $decimals, '.', '');
                     $fmtSale      = $hasSale ? number_format($salePriceRaw * $rate, $decimals, '.', '') : null;
-                    $productUrl   = $frontendUrl . '/product/' . $product->slug . '?currency=' . $currencyCode;
+                    $productUrl = \App\Helpers\Helpers::productPageUrl($product->slug);
                     $imageUrl     = $product->product_thumbnail ? $product->product_thumbnail->image_url : '';
                     $brandName    = $product->brand && $product->brand->name ? $product->brand->name : config('app.name', 'One Stop Store');
                     $cleanName    = $this->removeControlCharacters($product->name);
@@ -356,7 +356,7 @@ class GenerateProductFeed extends Command
                     $hasSale      = $salePriceRaw > 0;
                     $fmtRegular   = number_format($regularPrice * $rate, $decimals, '.', '') . ' ' . $currencyCode;
                     $fmtSale      = $hasSale ? number_format($salePriceRaw * $rate, $decimals, '.', '') . ' ' . $currencyCode : '';
-                    $productUrl   = $frontendUrl . '/product/' . $product->slug . '?currency=' . $currencyCode;
+                    $productUrl = \App\Helpers\Helpers::productPageUrl($product->slug);
                     $imageUrl     = $product->product_thumbnail ? $product->product_thumbnail->image_url : '';
                     $brandName    = $product->brand && $product->brand->name ? $product->brand->name : config('app.name', 'One Stop Store');
 
@@ -420,7 +420,7 @@ class GenerateProductFeed extends Command
                     $hasSale      = $salePriceRaw > 0;
                     $fmtRegular   = number_format($regularPrice * $rate, $decimals, '.', '') . ' ' . $currencyCode;
                     $fmtSale      = $hasSale ? number_format($salePriceRaw * $rate, $decimals, '.', '') . ' ' . $currencyCode : '';
-                    $productUrl   = $frontendUrl . '/product/' . $product->slug . '?currency=' . $currencyCode;
+                    $productUrl = \App\Helpers\Helpers::productPageUrl($product->slug);
                     $imageUrl     = $product->product_thumbnail ? $product->product_thumbnail->image_url : '';
                     $brandName    = $product->brand && $product->brand->name ? $product->brand->name : config('app.name', 'One Stop Store');
 
@@ -477,7 +477,7 @@ class GenerateProductFeed extends Command
         $formatted = number_format($converted, $decimals, $decSep, $thouSep);
 
         $frontendUrl = config('app.frontend_url') ?? config('app.url');
-        $productUrl = rtrim($frontendUrl, '/') . '/product/' . $product->slug . '?currency=' . $currencyCode;
+        $productUrl = \App\Helpers\Helpers::productPageUrl($product->slug);
         $imageUrl = $product->product_thumbnail ? $product->product_thumbnail->image_url : '';
 
         // Clean all text fields from control characters before XML encoding
@@ -508,7 +508,7 @@ class GenerateProductFeed extends Command
         $formatted = number_format($converted, $decimals, $decSep, $thouSep);
 
         $frontendUrl = config('app.frontend_url') ?? config('app.url');
-        $productUrl = rtrim($frontendUrl, '/') . '/product/' . $product->slug . '?currency=' . $currencyCode;
+        $productUrl = \App\Helpers\Helpers::productPageUrl($product->slug);
         $imageUrl = $product->product_thumbnail ? $product->product_thumbnail->image_url : '';
 
         $row = [

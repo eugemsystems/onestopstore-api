@@ -670,7 +670,7 @@ class AdminProductFeedController extends BaseAdminController
         $displayPrice = $hasSalePrice ? $formattedSale : $formattedRegular;
 
         $frontendUrl = config('app.frontend_url') ?? config('app.url');
-        $productUrl  = rtrim($frontendUrl, '/') . '/en/product/' . $product->slug . '?currency=' . $currencyCode;
+        $productUrl = \App\Helpers\Helpers::productPageUrl($product->slug);
         $imageUrl    = $product->product_thumbnail
             ? $product->product_thumbnail->image_url
             : '';
@@ -723,7 +723,7 @@ class AdminProductFeedController extends BaseAdminController
         $formattedSale = $hasSalePrice ? number_format($convertedSale, $decimals, '.', '') . ' ' . $currencyCode : '';
 
         $frontendUrl = config('app.frontend_url') ?? config('app.url');
-        $productUrl  = rtrim($frontendUrl, '/') . '/en/product/' . $product->slug . '?currency=' . $currencyCode;
+        $productUrl = \App\Helpers\Helpers::productPageUrl($product->slug);
         $imageUrl    = $product->product_thumbnail
             ? $product->product_thumbnail->image_url
             : '';
@@ -766,7 +766,7 @@ class AdminProductFeedController extends BaseAdminController
         $formattedSale = $hasSalePrice ? number_format($convertedSale, $decimals, '.', '') . ' ' . $currencyCode : '';
 
         $frontendUrl = config('app.frontend_url') ?? config('app.url');
-        $productUrl  = rtrim($frontendUrl, '/') . '/en/product/' . $product->slug . '?currency=' . $currencyCode;
+        $productUrl = \App\Helpers\Helpers::productPageUrl($product->slug);
         $imageUrl    = $product->product_thumbnail
             ? $product->product_thumbnail->image_url
             : '';

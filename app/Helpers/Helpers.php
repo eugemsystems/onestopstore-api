@@ -33,6 +33,16 @@ use Illuminate\Support\Facades\Log;
 class Helpers
 {
 
+  // Public storefront product URL for feeds: no locale prefix, no currency query.
+  // FRONTEND_URL may carry a trailing /en, so strip it to avoid /en/en.
+  public static function productPageUrl($slug)
+  {
+    $base = rtrim((string) (config('app.frontend_url') ?: config('app.url')), '/');
+    $base = preg_replace('#/en$#i', '', $base);
+
+    return $base . '/product/' . $slug;
+  }
+
   // Get Current User Values
   public static function isUserLogin()
   {
