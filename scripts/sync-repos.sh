@@ -51,8 +51,10 @@ warn() { printf '!! %s\n' "$*" >&2; }
 
 name_of() { basename "$1"; }
 
-# "<author-ts>|<subject>" for every non-merge commit on BRANCH since SINCE
-keys_of() { git -C "$1" log "$BRANCH" --no-merges --since="$SINCE" --format='%at|%s'; }
+# "<author-ts>|<subject>" for EVERY non-merge commit on BRANCH (full history, not just >= SINCE:
+# a commit ported by hand from an older commit gets a fresh committer date but keeps its author
+# date, and must still be recognised as "already there").
+keys_of() { git -C "$1" log "$BRANCH" --no-merges --format='%at|%s'; }
 
 prepare_repo() {   # make sure repo is on BRANCH and fast-forwarded to the remote
   local repo="$1" n; n="$(name_of "$repo")"
