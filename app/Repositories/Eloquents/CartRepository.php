@@ -165,6 +165,12 @@ class CartRepository extends BaseRepository
             $item = Helpers::getVariationStock($product['variation_id']);
         }
 
+        // getProductStock()/getVariationStock() return null when the item is out
+        // of stock or inactive; reading ->quantity on that crashed with a 500.
+        if (!$item) {
+            throw new Exception('This product is out of stock or no longer available. Please remove it from your cart.', 400);
+        }
+
         if ($quantity <= $item->quantity && $item->quantity > 0) {
             return true;
         }
