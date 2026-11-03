@@ -104,6 +104,8 @@ Route::apiResource('country', 'App\Http\Controllers\CountryController');
 // Settings & Options
 Route::get('settings', 'App\Http\Controllers\SettingController@frontSettings');
 Route::get('themeOptions', 'App\Http\Controllers\ThemeOptionController@index');
+// Catalog pages: the storefront reports each page view here (see CatalogPageController::hit)
+Route::post('catalog/{slug}/hit', [\App\Http\Controllers\CatalogPageController::class, 'hit'])->where('slug', '[a-z0-9_-]+')->middleware('throttle:300,1');
 Route::get('settingsFront', 'App\Http\Controllers\SettingController@indexFront');
 Route::get('themeOptionsFront', 'App\Http\Controllers\ThemeOptionController@indexFront');
 

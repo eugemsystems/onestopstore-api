@@ -53,6 +53,12 @@ Route::get('/custom-feeds/{slug}.xml', [\App\Http\Controllers\CustomFeedControll
     ->name('custom-feeds.show')
     ->where('slug', '[A-Za-z0-9\-]+');
 
+// Public source for the storefront's /catalog/{slug} pages: the HTML file most recently
+// uploaded for that slug (admin: Catalog Pages). Streamed through Laravel, like /dailyfeeds,
+// because files written at runtime aren't visible to this deployment's nginx.
+Route::get('/catalog/{slug}', [\App\Http\Controllers\CatalogPageController::class, 'show'])
+    ->where('slug', '[a-z0-9_-]+');
+
 require __DIR__.'/auth.php';
 
 Route::get('/vendor/log-viewer/{path}', function (string $path) {
@@ -455,6 +461,15 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::post('/custom-feeds', [\App\Http\Controllers\Admin\AdminCustomFeedController::class, 'store'])->name('custom-feeds.store');
             Route::post('/custom-feeds/{id}/run-now', [\App\Http\Controllers\Admin\AdminCustomFeedController::class, 'runNow'])->name('custom-feeds.run-now');
             Route::delete('/custom-feeds/{id}', [\App\Http\Controllers\Admin\AdminCustomFeedController::class, 'destroy'])->name('custom-feeds.destroy');
+        });
+
+        // Catalog Pages (uploaded HTML files published at /catalog/{slug})
+        Route::prefix('catalog-pages')->name('catalog-pages.')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Admin\AdminCatalogPageController::class, 'index'])->name('index');
+            Route::post('/', [\App\Http\Controllers\Admin\AdminCatalogPageController::class, 'store'])->name('store');
+            Route::put('/{catalogPage}', [\App\Http\Controllers\Admin\AdminCatalogPageController::class, 'update'])->name('update');
+            Route::delete('/{catalogPage}', [\App\Http\Controllers\Admin\AdminCatalogPageController::class, 'destroy'])->name('destroy');
+            Route::get('/{catalogPage}/download', [\App\Http\Controllers\Admin\AdminCatalogPageController::class, 'download'])->name('download');
         });
 
         // Promo Templates

@@ -173,6 +173,13 @@ class SyncAdminPermissions extends Command
                 ['name' => 'daily-feeds.custom-feed-delete', 'description' => 'Delete custom category/SKU feed links'],
             ],
 
+            'Catalog Pages' => [
+                ['name' => 'catalog-pages.index', 'description' => 'View uploaded HTML catalog pages'],
+                ['name' => 'catalog-pages.create', 'description' => 'Publish a new HTML catalog page'],
+                ['name' => 'catalog-pages.update', 'description' => 'Replace the file / edit an HTML catalog page'],
+                ['name' => 'catalog-pages.destroy', 'description' => 'Delete an HTML catalog page'],
+            ],
+
             'Product Import' => [
                 ['name' => 'import.index', 'description' => 'View import page'],
                 ['name' => 'import.upload', 'description' => 'Upload import file'],

@@ -1051,7 +1051,7 @@
 
                         {{-- Products --}}
                         @if(auth()->user()->can('product.index'))
-                        <div class="rail-item has-flyout {{ request()->routeIs('admin.products.*','admin.product-feed.*','admin.daily-feeds.*','admin.import-fast*','admin.categories.*','admin.attributes.*','admin.bulk-promotion.*','admin.back-orders.*','admin.promo-templates.*') ? 'rail-active' : '' }}">
+                        <div class="rail-item has-flyout {{ request()->routeIs('admin.products.*','admin.product-feed.*','admin.daily-feeds.*','admin.catalog-pages.*','admin.import-fast*','admin.categories.*','admin.attributes.*','admin.bulk-promotion.*','admin.back-orders.*','admin.promo-templates.*') ? 'rail-active' : '' }}">
                             <div class="rail-link">
                                 <i class="bi bi-box-seam"></i>
                                 <span class="rail-label">Products</span>
@@ -1071,6 +1071,7 @@
                                 @can('product.create')<a class="flyout-link {{ request()->routeIs('admin.products.create') ? 'flyout-active' : '' }}" href="{{ route('admin.products.create') }}"><i class="bi bi-plus-square-fill"></i> Add Product</a>@endcan
                                 @can('product-feed.index')<a class="flyout-link {{ request()->routeIs('admin.product-feed.index') ? 'flyout-active' : '' }}" href="{{ route('admin.product-feed.index') }}"><i class="bi bi-rss-fill"></i> Export Feed</a>@endcan
                                 @can('daily-feeds.index')<a class="flyout-link {{ request()->routeIs('admin.daily-feeds.*') ? 'flyout-active' : '' }}" href="{{ route('admin.daily-feeds.index') }}"><i class="bi bi-cloud-arrow-up-fill" style="color:#2563eb"></i> Daily Regional Feeds</a>@endcan
+                                @can('catalog-pages.index')<a class="flyout-link {{ request()->routeIs('admin.catalog-pages.*') ? 'flyout-active' : '' }}" href="{{ route('admin.catalog-pages.index') }}"><i class="bi bi-file-earmark-code-fill" style="color:#7c3aed"></i> HTML Catalog Pages</a>@endcan
                                 @can('import.index')
                                 <a class="flyout-link {{ request()->routeIs('admin.import-fast.index') ? 'flyout-active' : '' }}" href="{{ route('admin.import-fast.index') }}"><i class="bi bi-lightning-charge-fill"></i> Fast Import</a>
                                 <a class="flyout-link {{ request()->routeIs('admin.import-fast-update.index') ? 'flyout-active' : '' }}" href="{{ route('admin.import-fast-update.index') }}"><i class="bi bi-arrow-repeat"></i> Fast Import [Update]</a>
