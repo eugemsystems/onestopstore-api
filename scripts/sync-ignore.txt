@@ -1,3 +1,4 @@
 # Commits (by short sha, in the repo they were made in) that were ported to the other repo BY HAND
 # and must never be auto-synced by scripts/sync-repos.sh. One sha per line; text after it is ignored.
 6f50259 Regenerate custom feed links on the daily regional feeds cron (ported into onestopstore's feature port)
+5842a5d Feeds: product links without /en or ?currency via Helpers::productPageUrl (onestopstore-only: raines keeps its /zm and ?currency feed links)
