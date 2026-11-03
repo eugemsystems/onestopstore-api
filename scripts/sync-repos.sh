@@ -82,11 +82,16 @@ sync_one_way() {   # sync_one_way SRC DST
 
   local dst_keys; dst_keys="$(keys_of "$dst")"
   local applied=0 skipped=0 ok=1 sha ts subject key
+  local ledger; ledger="$(git -C "$src" show "HEAD:scripts/sync-ignore.txt" 2>/dev/null | grep -v '^#')"
 
   while IFS='|' read -r sha ts subject; do
     [ -z "$sha" ] && continue
     key="$ts|$subject"
     if printf '%s\n' "$dst_keys" | grep -qxF -- "$key"; then continue; fi
+
+    # Commits that were ported to the other repo by hand are listed in scripts/sync-ignore.txt
+    if [ -n "$ledger" ] && printf '%s
+' "$ledger" | grep -q "^${sha:0:7}"; then skipped=$((skipped+1)); continue; fi
 
     # Commits adapted by hand for one repo carry a "Sync-Skip: true" trailer -> never auto-sync them
     if git -C "$src" log -1 --format=%B "$sha" | grep -qi '^Sync-Skip:'; then skipped=$((skipped+1)); continue; fi
