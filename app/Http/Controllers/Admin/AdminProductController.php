@@ -737,6 +737,7 @@ class AdminProductController extends Controller
             }
 
 
+            $uploadErrors = [];  // shown to the admin so a failed upload is never silent
             // Handle Product Thumbnail Upload
             if ($request->hasFile('product_thumbnail')) {
                 try {
@@ -748,6 +749,7 @@ class AdminProductController extends Controller
                         'product_id' => $product->id,
                         'error' => $e->getMessage()
                     ]);
+                    $uploadErrors[] = 'thumbnail';
                     // Continue — image upload failure should not abort the product update
                 }
             }
@@ -825,6 +827,7 @@ class AdminProductController extends Controller
                             'file_name' => $file->getClientOriginalName(),
                             'error' => $e->getMessage()
                         ]);
+                        $uploadErrors[] = $file->getClientOriginalName();
                         // Continue with other images
                     }
                 }
@@ -946,8 +949,13 @@ class AdminProductController extends Controller
                 // Don't fail the update if cache clearing fails
             }
 
-            return redirect()->route('admin.products.edit', $product->id)
+            $redirect = redirect()->route('admin.products.edit', $product->id)
                 ->with('success', 'Product updated successfully!');
+            if (!empty($uploadErrors)) {
+                $redirect->with('error', 'Product saved, but these images could NOT be uploaded to the media service: '
+                    . implode(', ', $uploadErrors) . '. Check IMAGE_API_URL and the media service (see laravel.log).');
+            }
+            return $redirect;
         } catch (\Exception $e) {
             // Roll back before doing anything else — PostgreSQL will reject all
             // further queries on the connection once a transaction is aborted (SQLSTATE 25P02)
@@ -971,7 +979,11 @@ class AdminProductController extends Controller
 
         try {
             // Upload to external laravel-media API
-            $mediaApiUrl = config('app.image_api_url', env('IMAGE_API_URL', 'http://localhost:8002/api'));
+            $mediaApiUrl = rtrim((string) config('app.image_api_url', env('IMAGE_API_URL', 'http://localhost:8002/api')), '/');
+            // The media service's routes live under /api; tolerate an IMAGE_API_URL set without it
+            if (!preg_match('#/api$#', $mediaApiUrl)) {
+                $mediaApiUrl .= '/api';
+            }
 
             $response = \Illuminate\Support\Facades\Http::attach(
                 'image', // The field name expected by laravel-media API
