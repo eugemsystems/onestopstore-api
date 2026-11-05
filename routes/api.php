@@ -259,7 +259,9 @@ Route::apiResource('home', 'App\Http\Controllers\HomePageController', [
   'only' => ['index', 'show'],
 ]);
 
-// Theme
+// Theme (the storefront calls /theme/show and /theme/default; these must come before theme/{theme})
+Route::get('theme/show', 'App\Http\Controllers\ThemeController@showing');
+Route::get('theme/default', 'App\Http\Controllers\ThemeController@default');
 Route::apiResource('theme', 'App\Http\Controllers\ThemeController',[
   'only' => ['index', 'show'],
 ]);

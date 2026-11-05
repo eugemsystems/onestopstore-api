@@ -56,6 +56,19 @@ class ThemeController extends Controller
      *   @OA\Response(response=200, description="OK")
      * )
      */
+    /** Active themes (GET /api/theme/show) */
+    public function showing()
+    {
+        return response()->json(Theme::where('status', 1)->orderBy('id')->get());
+    }
+
+    /** The default theme = first active one (GET /api/theme/default) */
+    public function default()
+    {
+        $theme = Theme::where('status', 1)->orderBy('id')->first() ?? Theme::orderBy('id')->first();
+        return response()->json($theme);
+    }
+
     public function show(Theme $theme)
     {
         return $this->repository->show($theme->id);
