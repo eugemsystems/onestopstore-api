@@ -583,8 +583,8 @@ class AdminProductController extends Controller
             'tags:id,name,slug,status', // Only load needed columns
             'product_thumbnail:id,file_name,image_url,disk',
             'product_galleries' => function($query) {
-                // Limit galleries to first 30 to prevent slow loading
-                $query->take(30);
+                // Limit galleries to prevent slow loading
+                $query->take(100);
             },
             'product_meta_image:id,file_name,image_url,disk',
             'size_chart_image:id,file_name,image_url,disk',
@@ -804,21 +804,20 @@ class AdminProductController extends Controller
                 }
             }
 
-            // Handle Product Galleries Upload
+            // Gallery: uploads, removals and the admin-chosen display order.
+            // The form submits `gallery_order` = JSON list in display order, e.g. ["e:12","n:0","e:7"]
+            // (e:<attachment id> = an image already on the product, n:<i> = the i-th uploaded file).
+            // Existing images are NEVER detached here unless they were explicitly removed.
+            $uploadedIds = [];   // file index => attachment id
             if ($request->hasFile('product_galleries')) {
-                $galleryIds = [];
-                $files = $request->file('product_galleries');
-
-                // Filter out any null or invalid files
-                $validFiles = array_filter($files, function($file) {
-                    return $file !== null && $file->isValid();
-                });
-
-                foreach ($validFiles as $file) {
+                foreach (array_values($request->file('product_galleries')) as $i => $file) {
+                    if ($file === null || !$file->isValid()) {
+                        continue;
+                    }
                     try {
                         $attachment = $this->uploadImage($file);
                         if ($attachment && $attachment->id) {
-                            $galleryIds[] = $attachment->id;
+                            $uploadedIds[$i] = (int) $attachment->id;
                         }
                     } catch (\Exception $e) {
                         Log::error('Failed to upload gallery image during update', [
@@ -829,32 +828,43 @@ class AdminProductController extends Controller
                         // Continue with other images
                     }
                 }
-
-                // Only sync if we have valid IDs
-                if (!empty($galleryIds)) {
-                    try {
-                        $product->product_galleries()->syncWithoutDetaching($galleryIds);
-                    } catch (\Exception $e) {
-                        Log::error('Failed to sync product galleries', [
-                            'product_id' => $product->id,
-                            'error' => $e->getMessage()
-                        ]);
-                        throw $e;
-                    }
+                if (!empty($uploadedIds)) {
+                    $product->product_galleries()->syncWithoutDetaching(array_values($uploadedIds));
                 }
             }
 
             // Handle removed galleries
             if ($request->filled('removed_galleries')) {
-                try {
-                    $removedIds = explode(',', $request->removed_galleries);
+                $removedIds = array_values(array_filter(array_map('intval', explode(',', $request->removed_galleries))));
+                if ($removedIds) {
                     $product->product_galleries()->detach($removedIds);
-                } catch (\Exception $e) {
-                    Log::error('Failed to detach product galleries', [
-                        'product_id' => $product->id,
-                        'error' => $e->getMessage()
-                    ]);
-                    throw $e;
+                }
+            }
+
+            // Persist the display order
+            $order = json_decode((string) $request->input('gallery_order', ''), true);
+            if (is_array($order) && Product::galleryPositionColumnExists()) {
+                $finalIds = [];
+                foreach ($order as $token) {
+                    if (!is_string($token) || !preg_match('/^([en]):(\d+)$/', $token, $m)) {
+                        continue;
+                    }
+                    $id = $m[1] === 'e' ? (int) $m[2] : ($uploadedIds[(int) $m[2]] ?? null);
+                    if ($id && !in_array($id, $finalIds, true)) {
+                        $finalIds[] = $id;
+                    }
+                }
+                // Uploaded files missing from the order list go at the end
+                foreach ($uploadedIds as $id) {
+                    if (!in_array($id, $finalIds, true)) {
+                        $finalIds[] = $id;
+                    }
+                }
+                foreach ($finalIds as $pos => $attId) {
+                    DB::table('product_images')
+                        ->where('product_id', $product->id)
+                        ->where('attachment_id', $attId)
+                        ->update(['position' => $pos]);
                 }
             }
 

@@ -586,7 +586,32 @@ class Product extends Model implements HasMedia
      */
     public function product_galleries(): BelongsToMany
     {
-        return $this->belongsToMany(Attachment::class, 'product_images','product_id', 'attachment_id');
+        $relation = $this->belongsToMany(Attachment::class, 'product_images','product_id', 'attachment_id');
+
+        // Admin-chosen order first (product_images.position), then the original order (pivot id).
+        // Guarded so the API keeps working before the migration that adds the column has run.
+        if (static::galleryPositionColumnExists()) {
+            $relation->orderByRaw('product_images.position asc nulls last')->orderBy('product_images.id');
+        }
+
+        return $relation;
+    }
+
+    protected static ?bool $galleryPositionExists = null;
+
+    public static function galleryPositionColumnExists(): bool
+    {
+        if (static::$galleryPositionExists !== null) {
+            return static::$galleryPositionExists;
+        }
+        try {
+            $has = (bool) Cache::remember('product_images_has_position_col', 600,
+                fn () => \Illuminate\Support\Facades\Schema::hasColumn('product_images', 'position'));
+        } catch (\Throwable $e) {
+            $has = false;
+        }
+        // Only memoise a positive answer for the process; a "no" is re-checked after the cache expires.
+        return $has ? (static::$galleryPositionExists = true) : false;
     }
 
     /**

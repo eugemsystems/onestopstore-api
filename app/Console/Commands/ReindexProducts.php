@@ -282,6 +282,8 @@ class ReindexProducts extends Command
                 ->whereIn('pi.product_id', $ids)
                 ->select('pi.product_id', 'a.id', 'a.uuid', 'a.name', 'a.disk', 'a.file_name', 'a.image_url', 'a.original_url')
                 ->orderBy('pi.product_id')
+                ->when(\App\Models\Product::galleryPositionColumnExists(),
+                    fn ($q) => $q->orderByRaw('pi.position asc nulls last'))
                 ->orderBy('pi.id')
                 ->get()
                 ->groupBy('product_id')

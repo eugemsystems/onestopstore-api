@@ -73,6 +73,16 @@
         object-fit: cover;
     }
 
+    .gallery-sortable { counter-reset: galpos; }
+    .gallery-sortable .image-preview { cursor: grab; counter-increment: galpos; }
+    .gallery-sortable .image-preview::after {
+        content: counter(galpos);
+        position: absolute; left: 5px; bottom: 5px;
+        background: rgba(0,0,0,.65); color: #fff; font-size: 11px; line-height: 1;
+        padding: 3px 6px; border-radius: 10px; pointer-events: none;
+    }
+    .gallery-sortable .image-preview.dragging { opacity: .35; border-color: #667eea; }
+
     .image-preview .remove-image {
         position: absolute;
         top: 5px;
@@ -322,6 +332,7 @@
                             <!-- Product Gallery -->
                             <div class="mb-4">
                                 <label class="form-label">Product Gallery (Multiple Images)</label>
+                                <div class="small text-muted mb-1"><i class="bi bi-arrows-move"></i> Drag the images to set the order shown on the website (first = main gallery image).</div>
                                 <div class="upload-area" id="gallery-upload-area">
                                     <i class="bi bi-images" style="font-size: 3rem; color: #667eea;"></i>
                                     <p class="mb-2">Click to upload or drag and drop multiple images</p>
@@ -329,11 +340,11 @@
                                     <input type="file" id="product_galleries" name="product_galleries[]"
                                            accept="image/*" multiple style="display: none;">
                                 </div>
-                                <div class="image-preview-container mt-3" id="gallery-preview">
+                                <div class="image-preview-container gallery-sortable mt-3" id="gallery-preview">
                                     @if($product->product_galleries && $product->product_galleries->count() > 0)
                                         @foreach($product->product_galleries as $gallery)
-                                            <div class="image-preview" data-gallery-id="{{ $gallery->id }}">
-                                                <img src="{{ $gallery->image_url }}" alt="Gallery">
+                                            <div class="image-preview" draggable="true" data-gallery-id="{{ $gallery->id }}">
+                                                <img src="{{ $gallery->image_url }}" alt="Gallery" draggable="false">
                                                 <button type="button" class="remove-image" data-type="gallery" data-id="{{ $gallery->id }}">
                                                     <i class="bi bi-x"></i>
                                                 </button>
@@ -342,6 +353,7 @@
                                     @endif
                                 </div>
                                 <input type="hidden" name="removed_galleries" id="removed_galleries" value="">
+                                <input type="hidden" name="gallery_order" id="gallery_order" value="">
                             </div>
 
                             <!-- Meta Image (SEO) -->
@@ -1898,9 +1910,85 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // Gallery: accumulates newly picked files, lets every tile (existing or new) be dragged into
+    // position, and on submit sends the files and the final order ("e:<id>" existing, "n:<i>" i-th new file).
+    function setupGallery() {
+        const area = document.getElementById('gallery-upload-area');
+        const input = document.getElementById('product_galleries');
+        const preview = document.getElementById('gallery-preview');
+        const orderInput = document.getElementById('gallery_order');
+        if (!area || !input || !preview) return;
+
+        function addFiles(fileList) {
+            Array.from(fileList).forEach(file => {
+                if (!file.type.startsWith('image/')) return;
+                const div = document.createElement('div');
+                div.className = 'image-preview';
+                div.draggable = true;
+                div._file = file;
+                const reader = new FileReader();
+                reader.onload = ev => {
+                    div.innerHTML = `<img src="${ev.target.result}" alt="New image" draggable="false">
+                        <button type="button" class="remove-image"><i class="bi bi-x"></i></button>`;
+                };
+                reader.readAsDataURL(file);
+                preview.appendChild(div);
+            });
+        }
+
+        area.addEventListener('click', () => input.click());
+        area.addEventListener('dragover', e => { e.preventDefault(); area.classList.add('dragover'); });
+        area.addEventListener('dragleave', () => area.classList.remove('dragover'));
+        area.addEventListener('drop', e => {
+            e.preventDefault();
+            area.classList.remove('dragover');
+            addFiles(e.dataTransfer.files);
+        });
+        input.addEventListener('change', () => { addFiles(input.files); input.value = ''; });
+
+        // Drag to reorder
+        let dragEl = null;
+        preview.addEventListener('dragstart', e => {
+            const t = e.target.closest ? e.target.closest('.image-preview') : null;
+            if (!t) return;
+            dragEl = t;
+            t.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            try { e.dataTransfer.setData('text/plain', 'gallery'); } catch (err) {}
+        });
+        preview.addEventListener('dragover', e => {
+            if (!dragEl) return;
+            e.preventDefault();
+            const over = document.elementFromPoint(e.clientX, e.clientY);
+            const target = over && over.closest ? over.closest('#gallery-preview .image-preview') : null;
+            if (!target || target === dragEl) return;
+            const r = target.getBoundingClientRect();
+            const before = e.clientX < r.left + r.width / 2;
+            preview.insertBefore(dragEl, before ? target : target.nextSibling);
+        });
+        preview.addEventListener('drop', e => { if (dragEl) e.preventDefault(); });
+        preview.addEventListener('dragend', () => {
+            if (dragEl) dragEl.classList.remove('dragging');
+            dragEl = null;
+        });
+
+        // On submit: put the new files into the input in display order and record the order
+        document.getElementById('productForm').addEventListener('submit', () => {
+            const dt = new DataTransfer();
+            const tokens = [];
+            let n = 0;
+            preview.querySelectorAll('.image-preview').forEach(el => {
+                if (el._file) { dt.items.add(el._file); tokens.push('n:' + n++); }
+                else if (el.dataset.galleryId) { tokens.push('e:' + el.dataset.galleryId); }
+            });
+            input.files = dt.files;
+            orderInput.value = JSON.stringify(tokens);
+        });
+    }
+
     // Setup all image uploads
     setupImageUpload('thumbnail-upload-area', 'product_thumbnail', 'thumbnail-preview');
-    setupImageUpload('gallery-upload-area', 'product_galleries', 'gallery-preview', true);
+    setupGallery();
     setupImageUpload('meta-image-upload-area', 'product_meta_image', 'meta-image-preview');
     setupImageUpload('size-chart-upload-area', 'size_chart_image', 'size-chart-preview');
 
