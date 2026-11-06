@@ -17,9 +17,17 @@ class Attachment extends Media implements HasMedia
 
     protected $table = 'attachments';
 
-    protected $primaryKey = 'id';       // or 'uuid' if you named the column "uuid"
-    public $incrementing = false;       // must set false since it's not an integer PK
-    protected $keyType = 'string';
+    // `id` is a normal auto-incrementing bigint (see migration) -- `uuid` is
+    // a separate column, not the primary key. This previously declared
+    // `$incrementing = false` / `$keyType = 'string'` as if `id` itself were
+    // a UUID, which tells Eloquent not to read the generated id back after
+    // INSERT. The database row got a real id, but every in-memory
+    // `Attachment::create(...)` call returned a model whose `->id` was
+    // always null -- silently breaking every caller that immediately used
+    // it (product gallery/thumbnail attach, blog images, store logos,
+    // layby documents, etc.), while the attachment itself still showed up
+    // fine in any fresh query (e.g. the admin Media Library list).
+    protected $primaryKey = 'id';
 
     /**
      * The attributes that are mass assignable.
