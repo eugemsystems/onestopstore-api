@@ -43,3 +43,6 @@ ngrok.exe
 # where the app runs as a different Unix user than the one deploying, git can't
 # even overwrite it on merge (Permission denied unlinking the old file).
 /storage/api-docs/api-docs.json
+
+# Track the changelog
+!CHANGELOG.md

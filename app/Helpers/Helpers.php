@@ -16,6 +16,7 @@ use App\Models\Currency;
 use App\Enums\OrderEnum;
 use App\Models\Category;
 use App\Models\Variation;
+use App\Models\ProductDeliveryOption;
 use App\Enums\SortByEnum;
 use App\Enums\StockStatus;
 use App\Models\Attachment;
@@ -352,6 +353,19 @@ class Helpers
 
   public static function getSalePrice($product)
   {
+    // Delivery option chosen: its own (sale) price is the unit price. Validated against the product
+    // so a client can never pick another product's option.
+    $optionId = $product['delivery_option_id'] ?? null;
+    if (!empty($optionId) && !empty($product['product_id'])) {
+      $option = ProductDeliveryOption::where('id', $optionId)
+        ->where('product_id', $product['product_id'])
+        ->where('status', 1)
+        ->first();
+      if ($option) {
+        return (float) $option->effective_price;
+      }
+    }
+
     $productPrices = self::getPrice($product);
 
     // Base price
@@ -632,6 +646,25 @@ class Helpers
     return Variation::findOrFail($id)->update(['stock_status' => $stock_status]);
   }
 
+  /**
+   * Decrement a delivery option's own stock, then re-derive the parent product's quantity/status.
+   */
+  public static function decrementDeliveryOptionQuantity($option_id, $quantity)
+  {
+    $option = ProductDeliveryOption::find($option_id);
+    if (!$option) {
+      return;
+    }
+    $option->decrement('quantity', $quantity);
+    $option = $option->fresh();
+    if ($option->quantity <= 0) {
+      $option->quantity = 0;
+      $option->stock_status = StockStatus::OUT_OF_STOCK;
+      $option->save();
+    }
+    ProductDeliveryOption::syncProduct($option->product_id);
+  }
+
   public static function decrementVariationQuantity($variation_id, $quantity)
   {
     $variation = Variation::findOrFail($variation_id);
@@ -805,7 +838,9 @@ class Helpers
       $order->payment_method == PaymentMethod::BANK_TRANSFER) {
       foreach ($order->products as $product) {
         $product = $product->pivot;
-        if (isset($product->variation_id)) {
+        if (!empty($product->delivery_option_id)) {
+          self::decrementDeliveryOptionQuantity($product->delivery_option_id, $product->quantity);
+        } elseif (isset($product->variation_id)) {
           self::decrementVariationQuantity($product->variation_id, $product->quantity);
         } else {
           self::decrementProductQuantity($product->product_id, $product->quantity);

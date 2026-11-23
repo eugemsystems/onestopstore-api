@@ -276,6 +276,16 @@ trait CheckoutTrait
                     $estimatedDeliveryText = $prodModel->estimated_delivery_text;
                 }
 
+                // Delivery option chosen by the customer (frozen snapshot on the order line)
+                $deliveryOption = null;
+                if (!empty($product['delivery_option_id'])) {
+                    $deliveryOption = \App\Models\ProductDeliveryOption::where('id', $product['delivery_option_id'])
+                        ->where('product_id', $product['product_id'])->first();
+                    if ($deliveryOption && $deliveryOption->delivery_text) {
+                        $estimatedDeliveryText = $deliveryOption->delivery_text;
+                    }
+                }
+
                 // Build the per-product cost array with all required fields
                 $perProductCost[] = [
                     'store_id'              => Helpers::getStoreIdByProductId($product['product_id']),
@@ -283,6 +293,10 @@ trait CheckoutTrait
                     'variation_id'          => $product['variation_id'] ?? null,
                     'selected_attribute_ids' => $product['selected_attribute_ids'] ?? null,
                     'variation_display_name' => $product['variation_display_name'] ?? null,
+                    'delivery_option_id'    => $deliveryOption?->id,
+                    'delivery_option_label' => $deliveryOption?->label,
+                    'delivery_option_text'  => $deliveryOption?->delivery_text,
+                    'delivery_option_price' => $deliveryOption ? $singleProductPrice : null,
                     'tax'                   => $perProductTax,
                     'shipping_cost'         => $perProductShippingCost,  // From global shipping rules OR 0
                     'fast_shipping_cost'    => $perProductFastShippingCost, // From per-product expedited shipping

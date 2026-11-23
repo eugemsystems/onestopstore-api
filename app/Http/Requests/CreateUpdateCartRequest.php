@@ -28,6 +28,7 @@ class CreateUpdateCartRequest extends FormRequest
         return [
             'product_id' => ['nullable','required','exists:products,id,deleted_at,NULL'],
             'variation_id' => ['nullable','exists:variations,id,deleted_at,NULL'],
+            'delivery_option_id' => ['nullable','exists:product_delivery_options,id,deleted_at,NULL'],
         ];
     }
 

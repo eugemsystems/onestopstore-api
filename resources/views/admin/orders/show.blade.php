@@ -398,6 +398,15 @@
                                                 </div>
                                             @endif
 
+                                            {{-- Delivery option chosen by the customer --}}
+                                            @if(!empty($item->pivot->delivery_option_label))
+                                                <div class="mt-1">
+                                                    <span class="badge bg-info text-dark">
+                                                        <i class="bi bi-lightning-charge"></i> {{ $item->pivot->delivery_option_label }}{{ !empty($item->pivot->delivery_option_text) ? ' · ' . $item->pivot->delivery_option_text : '' }}
+                                                    </span>
+                                                </div>
+                                            @endif
+
                                             {{-- Multi-Attribute Variation Display --}}
                                             @if($item->pivot->variation_id)
                                                 <div class="product-variations mt-1">

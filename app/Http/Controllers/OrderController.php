@@ -942,6 +942,7 @@ class OrderController extends Controller
                 'product_id' => 'required|integer|exists:products,id',
                 //'variation_id' => 'nullable|integer|exists:variations,id',
                 'variation_id' => 'nullable',
+                'delivery_option_id' => 'nullable|integer',
                 // Allow all valid item statuses from CRM
                 'item_status' => 'required|string|in:pending,processing,shipped,delivered,collected,cancelled,out_of_stock,refunded,in transit to zim,out for delivery,ready for collection,warehouse packing,dropped at the deport,from supplier,out of stock,stuck,arrived at local branch',
                 'cancellation_reason' => 'nullable|string|max:500',
@@ -950,6 +951,7 @@ class OrderController extends Controller
 
             $productId = (int) $validated['product_id'];
             $variationId = $validated['variation_id'] ?? null;
+            $deliveryOptionId = $validated['delivery_option_id'] ?? null;
             $itemStatus = $validated['item_status'];
             $cancellationReason = $validated['cancellation_reason'] ?? null;
             $eta = $validated['eta'] ?? null;
@@ -965,6 +967,11 @@ class OrderController extends Controller
                 $query->where('variation_id', $variationId);
             } else {
                 $query->whereNull('variation_id');
+            }
+
+            // Same product bought with two different delivery options in one order = two lines
+            if ($deliveryOptionId) {
+                $query->where('delivery_option_id', $deliveryOptionId);
             }
 
             $orderProduct = $query->first();
@@ -1199,7 +1206,8 @@ class OrderController extends Controller
                         $variationId,
                         $itemStatus,
                         $cancellationReason,
-                        $eta
+                        $eta,
+                        $deliveryOptionId ? (int) $deliveryOptionId : null
                     );
                 }
             } catch (\Throwable $e) {

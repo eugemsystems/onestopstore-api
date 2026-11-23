@@ -31,6 +31,7 @@ class CalculateCheckoutRequest extends FormRequest
             'products' => ['required','array'],
             'products.*.product_id' => ['required', Rule::exists('products', 'id')->whereNull('deleted_at')],
             'products.*.variation_id' => ['nullable', Rule::exists('variations', 'id')->whereNull('deleted_at')],
+            'products.*.delivery_option_id' => ['nullable', Rule::exists('product_delivery_options', 'id')->whereNull('deleted_at')],
             'coupon' => ['nullable', Rule::exists('coupons', 'code')->whereNull('deleted_at')],
             'payment_method' => ['nullable'],
             'billing_address_id' => ['required', Rule::exists('addresses', 'id')->whereNull('deleted_at')],

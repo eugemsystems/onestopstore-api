@@ -365,6 +365,26 @@ class ReindexProducts extends Command
                 ];
             });
 
+            // Delivery options (admin-named options such as "Fastest Delivery" / "Best Price")
+            $deliveryOptionsMap = collect();
+            if (\Illuminate\Support\Facades\Schema::hasTable('product_delivery_options')) {
+                $deliveryOptionsMap = DB::table('product_delivery_options')
+                    ->whereIn('product_id', $ids)->where('status', 1)->whereNull('deleted_at')
+                    ->orderBy('sort_order')->orderBy('id')
+                    ->get(['id', 'product_id', 'label', 'delivery_text', 'delivery_days', 'price', 'sale_price', 'stock_status', 'quantity'])
+                    ->groupBy('product_id')
+                    ->map(fn ($rows) => $rows->map(fn ($o) => [
+                        'id' => (int) $o->id,
+                        'label' => $o->label,
+                        'delivery_text' => $o->delivery_text,
+                        'delivery_days' => $o->delivery_days !== null ? (int) $o->delivery_days : null,
+                        'price' => (float) $o->price,
+                        'sale_price' => $o->sale_price !== null ? (float) $o->sale_price : null,
+                        'stock_status' => $o->stock_status,
+                        'quantity' => (int) $o->quantity,
+                    ])->values()->all());
+            }
+
             // Variations
             $variRows = DB::table('variations as v')
                 ->leftJoin('attachments as a', 'a.id', '=', 'v.variation_image_id')
@@ -460,6 +480,7 @@ class ReindexProducts extends Command
                 $reviewRatings = $reviewStats['ratings_distribution'];
 
                 $variations = $variationsMap[$row->id] ?? [];
+                $deliveryOptions = $deliveryOptionsMap[$row->id] ?? [];
 
                 // flag if top-level category exists
                 $categoryIsTopLevel = false;
@@ -583,6 +604,8 @@ class ReindexProducts extends Command
                     'review_ratings' => $reviewRatings, // Distribution: [1-star, 2-star, 3-star, 4-star, 5-star]
                     'reviews' => $reviews, // Full reviews array with user data
                     'variations' => $variations,
+                    'has_delivery_options' => !empty($deliveryOptions),
+                    'delivery_options' => $deliveryOptions,
 
                     // Search optimization fields
                     'combined' => trim(implode(' ', array_filter([
@@ -623,7 +646,7 @@ class ReindexProducts extends Command
 
             // Free memory after each chunk
             unset($ids, $categoryRows, $categoryGroup, $parentIds, $parentRows, $tagMap, $brandIds, $brandMap);
-            unset($thumbMap, $metaImageMap, $galleryMap, $reviewRows, $reviewStatsMap, $variationsMap, $params);
+            unset($thumbMap, $metaImageMap, $galleryMap, $reviewRows, $reviewStatsMap, $variationsMap, $deliveryOptionsMap, $params);
             gc_collect_cycles(); // Force garbage collection
         }, 'id');
 

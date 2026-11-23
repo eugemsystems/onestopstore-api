@@ -77,7 +77,10 @@ trait UtilityTrait
       // Also include variation_display_name as fallback for items without attribute IDs
       $vname = data_get($product, 'variation_display_name', '');
 
-      return (string) $pid . '-' . (string) $vid . '-' . $attrKey . '-' . (string) $vname;
+      // Different delivery options of the same product are separate lines
+      $oid = data_get($product, 'delivery_option_id', '');
+
+      return (string) $pid . '-' . (string) $vid . '-' . $attrKey . '-' . (string) $vname . '-' . (string) $oid;
     })->values()->toArray();
 
     return $unique;
@@ -181,6 +184,26 @@ trait UtilityTrait
                     'success' => false,
                     'message' => "Product {$pid} is inactive or missing."
                 ], 400);
+            }
+
+            // Products with delivery options: the customer must pick one, and it must be in stock
+            $activeOptions = \App\Models\ProductDeliveryOption::where('product_id', $pid)->where('status', 1)->get();
+            if ($activeOptions->isNotEmpty()) {
+                $oid = data_get($row, 'delivery_option_id');
+                $opt = $oid ? $activeOptions->firstWhere('id', (int) $oid) : null;
+                if (!$opt) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Please choose a delivery option for product {$pid}."
+                    ], 400);
+                }
+                if (!$opt->isInStock() || (int) $opt->quantity < $qty) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => "The selected delivery option ({$opt->label}) for product {$pid} is out of stock or has insufficient stock."
+                    ], 400);
+                }
+                continue;
             }
 
             // Check if product has ACTIVE variations (not soft-deleted AND status = 1)

@@ -20,6 +20,7 @@ class Cart extends Model
     protected $fillable = [
         'product_id',
         'variation_id',
+        'delivery_option_id',
         'consumer_id',
         'quantity',
         'sub_total',
@@ -29,7 +30,8 @@ class Cart extends Model
 
     protected $with = [
         'product',
-        'variation'
+        'variation',
+        'deliveryOption'
     ];
 
     protected $casts = [
@@ -82,5 +84,13 @@ class Cart extends Model
     public function variation(): BelongsTo
     {
         return $this->belongsTo(Variation::class);
+    }
+
+    /**
+     * @return BelongsTo
+     */
+    public function deliveryOption(): BelongsTo
+    {
+        return $this->belongsTo(ProductDeliveryOption::class, 'delivery_option_id');
     }
 }

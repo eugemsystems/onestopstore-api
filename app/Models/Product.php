@@ -99,6 +99,7 @@ class Product extends Model implements HasMedia
 
     protected $with = [
         'variations',
+        'deliveryOptions',
         'product_thumbnail',
         'product_meta_image',
         'product_galleries',
@@ -209,6 +210,7 @@ class Product extends Model implements HasMedia
         // Load all relationships needed
         $this->loadMissing([
             'variations',
+            'deliveryOptions',
             'product_thumbnail',
             'product_meta_image',
             'product_galleries',
@@ -275,6 +277,19 @@ class Product extends Model implements HasMedia
 
             // SKU
             'sku' => $this->sku,
+
+            // Delivery options (price is derived from the cheapest active option)
+            'has_delivery_options' => $this->deliveryOptions->isNotEmpty(),
+            'delivery_options' => $this->deliveryOptions->map(fn ($o) => [
+                'id' => $o->id,
+                'label' => $o->label,
+                'delivery_text' => $o->delivery_text,
+                'delivery_days' => $o->delivery_days,
+                'price' => $o->price,
+                'sale_price' => $o->sale_price,
+                'stock_status' => $o->stock_status,
+                'quantity' => $o->quantity,
+            ])->values()->all(),
 
             // Meta & content
             'meta_title' => $this->meta_title,
@@ -439,6 +454,7 @@ class Product extends Model implements HasMedia
                     'product_meta_image',
                     'product_galleries',
                     'variations',
+                    'deliveryOptions',
                     'store',
                     'tax',
                 ])->find($product->id);
@@ -631,6 +647,26 @@ class Product extends Model implements HasMedia
         return $this->hasMany(Variation::class, 'product_id')
             ->where('status', 1)
             ->whereNull('deleted_at');
+    }
+
+    /**
+     * Active delivery options (e.g. "Fastest Delivery" / "Best Price"), cheapest-first by sort order.
+     * @return HasMany
+     */
+    public function deliveryOptions(): HasMany
+    {
+        return $this->hasMany(ProductDeliveryOption::class, 'product_id')
+            ->where('status', 1)
+            ->whereNull('deleted_at')
+            ->orderBy('sort_order')->orderBy('id');
+    }
+
+    /** All options incl. inactive (admin). */
+    public function allDeliveryOptions(): HasMany
+    {
+        return $this->hasMany(ProductDeliveryOption::class, 'product_id')
+            ->whereNull('deleted_at')
+            ->orderBy('sort_order')->orderBy('id');
     }
 
     /**

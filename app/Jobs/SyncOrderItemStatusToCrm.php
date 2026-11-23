@@ -24,6 +24,7 @@ class SyncOrderItemStatusToCrm implements ShouldQueue
     protected $itemStatus;
     protected $cancellationReason;
     protected $eta;
+    protected $deliveryOptionId;
 
     /**
      * Create a new job instance.
@@ -34,7 +35,8 @@ class SyncOrderItemStatusToCrm implements ShouldQueue
         ?int $variationId,
         string $itemStatus,
         ?string $cancellationReason,
-        ?string $eta
+        ?string $eta,
+        ?int $deliveryOptionId = null
     ) {
         $this->orderId = $orderId;
         $this->productId = $productId;
@@ -42,6 +44,7 @@ class SyncOrderItemStatusToCrm implements ShouldQueue
         $this->itemStatus = $itemStatus;
         $this->cancellationReason = $cancellationReason;
         $this->eta = $eta;
+        $this->deliveryOptionId = $deliveryOptionId;
     }
 
     /**
@@ -59,6 +62,7 @@ class SyncOrderItemStatusToCrm implements ShouldQueue
             'order_id' => $this->orderId,
             'product_id' => $this->productId,
             'variation_id' => $this->variationId,
+            'delivery_option_id' => $this->deliveryOptionId,
             'item_status' => $this->itemStatus,
             'cancellation_reason' => $this->cancellationReason,
             'eta' => $this->eta,

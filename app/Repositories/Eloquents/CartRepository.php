@@ -124,6 +124,7 @@ class CartRepository extends BaseRepository
                 $updatePayload = [
                     'product_id' => $request->product_id,
                     'variation_id' => $request->variation_id,
+                    'delivery_option_id' => $request->delivery_option_id,
                     'quantity' => $request->quantity,
                     'sub_total' => Helpers::roundNumber($subTotal),
                 ];
@@ -160,6 +161,20 @@ class CartRepository extends BaseRepository
 
     public function isStockAvailable($product, $quantity)
     {
+        // Products with delivery options are stocked per option
+        $activeOptions = \App\Models\ProductDeliveryOption::where('product_id', $product['product_id'])->where('status', 1)->get();
+        if ($activeOptions->isNotEmpty()) {
+            $optionId = $product['delivery_option_id'] ?? null;
+            $option = $optionId ? $activeOptions->firstWhere('id', (int) $optionId) : null;
+            if (!$option) {
+                throw new Exception('Please choose a delivery option for this product.', 400);
+            }
+            if (!$option->isInStock()) {
+                throw new Exception('The selected delivery option is out of stock. Please choose another option.', 400);
+            }
+            return $quantity <= (int) $option->quantity;
+        }
+
         $item = Helpers::getProductStock($product['product_id']);
         if (isset($product['variation_id'])) {
             $item = Helpers::getVariationStock($product['variation_id']);
@@ -178,9 +193,39 @@ class CartRepository extends BaseRepository
         return false;
     }
 
+    /**
+     * A product with active delivery options can only be in the cart with a valid, in-stock option.
+     * Returns an error message, or null when the line is fine.
+     */
+    public function deliveryOptionError($item): ?string
+    {
+        $productId = $item['product_id'] ?? null;
+        if (!$productId) {
+            return null;
+        }
+        $options = \App\Models\ProductDeliveryOption::where('product_id', $productId)->where('status', 1)->get();
+        if ($options->isEmpty()) {
+            return null;
+        }
+        $optionId = $item['delivery_option_id'] ?? null;
+        $option = $optionId ? $options->firstWhere('id', (int) $optionId) : null;
+        if (!$option) {
+            return 'Please choose a delivery option for this product.';
+        }
+        if (!$option->isInStock()) {
+            return 'The selected delivery option is out of stock. Please choose another option.';
+        }
+        return null;
+    }
+
     public function verifyCartItem($request)
     {
         try {
+            // Products sold with delivery options need one chosen
+            if ($error = $this->deliveryOptionError($request)) {
+                throw new Exception($error, 400);
+            }
+
             // Validate gift card restrictions BEFORE processing
             $this->validateGiftCardCart($request);
 
@@ -223,6 +268,7 @@ class CartRepository extends BaseRepository
                 $cart = $this->model->create([
                     'product_id' => $request['product_id'],
                     'variation_id' => $request['variation_id'],
+                    'delivery_option_id' => $request['delivery_option_id'] ?? null,
                     'quantity' => $request['quantity'],
                     'sub_total' => Helpers::formatDecimal($subTotal),
                     'item_shipping_method' => $itemShippingMethod,
@@ -232,6 +278,7 @@ class CartRepository extends BaseRepository
 
             $cart->product;
             $cart->variation;
+            $cart->deliveryOption;
 
             return $cart;
 
@@ -246,6 +293,7 @@ class CartRepository extends BaseRepository
         return $this->model->where([
             ['product_id', $product['product_id']],
             ['variation_id', $product['variation_id']],
+            ['delivery_option_id', $product['delivery_option_id'] ?? null],
             ['consumer_id', Helpers::getCurrentUserId()]
         ])->first();
     }
@@ -273,6 +321,11 @@ class CartRepository extends BaseRepository
         try {
 
             foreach($request->all() as $cart) {
+                // Guest-cart merge: skip lines that can no longer be bought as-is (e.g. the product
+                // gained delivery options after it was added) instead of failing the whole merge.
+                if ($this->deliveryOptionError($cart)) {
+                    continue;
+                }
                 $cartItems[] = $this->verifyCartItem($cart);
                 $cart = $this->getCartTotal($cartItems);
             }

@@ -35,6 +35,7 @@ class CreateOrderRequest extends FormRequest
             'products' => ['required','array'],
             'products.*.product_id' => ['required', Rule::exists('products', 'id')->whereNull('deleted_at')],
             'products.*.variation_id' => ['nullable', Rule::exists('variations', 'id')],
+            'products.*.delivery_option_id' => ['nullable', Rule::exists('product_delivery_options', 'id')->whereNull('deleted_at')],
             'products.*.selected_attribute_ids' => ['nullable','array'],
             'products.*.variation_display_name' => ['nullable','string','max:255'],
             'coupon' => ['nullable', Rule::exists('coupons', 'code')->whereNull('deleted_at')],

@@ -215,6 +215,9 @@
                         <a class="nav-link" href="#variations" data-section="variations">
                             <i class="bi bi-grid-3x3"></i> Variations
                         </a>
+                        <a class="nav-link" href="#delivery-options" data-section="delivery-options">
+                            <i class="bi bi-lightning-charge"></i> Delivery Options
+                        </a>
                         <a class="nav-link" href="#settings" data-section="settings">
                             <i class="bi bi-gear"></i> Settings
                         </a>
@@ -896,6 +899,32 @@
                                     No variations added yet. Click "Add Variation" to create product variations.
                                 </div>
                             @endif
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Delivery Options Section -->
+                <div id="delivery-options" class="section-content mb-4">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0"><i class="bi bi-lightning-charge me-2"></i>Delivery Options</h5>
+                            <button type="button" class="btn btn-sm btn-primary" id="addDeliveryOptionBtn">
+                                <i class="bi bi-plus-circle me-1"></i>Add Option
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <input type="hidden" name="delivery_options_submitted" value="1">
+                            <p class="text-muted small mb-3">
+                                Sell the same product at different prices for different delivery times (e.g. local stock delivered fast, imported stock delivered later).
+                                Customers must choose an option; the shop shows the lowest price with "More Options".
+                                Option names are fully editable. The first two rows you add are pre-named
+                                <strong>Fastest Delivery</strong> and <strong>Best Price</strong>; rename or delete them as you like.
+                                <br>When options exist, this product's own <em>price, sale price, quantity and stock status</em> are set automatically from them.
+                            </p>
+                            <div id="deliveryOptionsList"></div>
+                            <div id="deliveryOptionsEmpty" class="text-muted text-center py-3 border rounded" style="display:none;">
+                                No delivery options. Click "Add Option" to offer this product at several prices / delivery times.
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2180,3 +2209,110 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 @endpush
 
+
+@push('scripts')
+<script>
+// ── Delivery Options repeater ────────────────────────────────────────────────
+(function () {
+    const DEFAULT_LABELS = ['Fastest Delivery', 'Best Price'];
+    @php
+        $deliveryOptionsForJs = $product->allDeliveryOptions->map(function ($o) {
+            return [
+                'id' => $o->id, 'label' => $o->label, 'delivery_text' => $o->delivery_text,
+                'delivery_days' => $o->delivery_days, 'price' => $o->price, 'sale_price' => $o->sale_price,
+                'quantity' => $o->quantity, 'sku' => $o->sku, 'status' => $o->status, 'is_default' => $o->is_default,
+            ];
+        })->values()->all();
+    @endphp
+    const existing = {!! json_encode($deliveryOptionsForJs) !!};
+
+    const list = document.getElementById('deliveryOptionsList');
+    const empty = document.getElementById('deliveryOptionsEmpty');
+    const addBtn = document.getElementById('addDeliveryOptionBtn');
+    if (!list || !addBtn) return;
+
+    let nextIndex = 0;
+    const esc = (v) => String(v ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+
+    function lockProductFields() {
+        const has = list.children.length > 0;
+        ['price', 'sale_price', 'quantity'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) { el.readOnly = has; el.title = has ? 'Set automatically from Delivery Options' : ''; }
+        });
+        const st = document.getElementById('stock_status');
+        if (st) { st.style.pointerEvents = has ? 'none' : ''; st.style.opacity = has ? '.6' : ''; }
+        empty.style.display = has ? 'none' : '';
+    }
+
+    function addRow(data) {
+        const i = nextIndex++;
+        const d = Object.assign({ id: '', label: '', delivery_text: '', delivery_days: '', price: '', sale_price: '', quantity: 0, sku: '', status: true, is_default: false }, data || {});
+        const div = document.createElement('div');
+        div.className = 'border rounded p-3 mb-3 bg-light';
+        div.innerHTML = `
+            <input type="hidden" name="delivery_options[${i}][id]" value="${esc(d.id)}">
+            <div class="row g-2">
+                <div class="col-md-4">
+                    <label class="form-label small fw-semibold mb-1">Option name *</label>
+                    <input type="text" class="form-control form-control-sm" name="delivery_options[${i}][label]" value="${esc(d.label)}" maxlength="100" required placeholder="e.g. Fastest Delivery">
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label small fw-semibold mb-1">Delivery time shown to customer</label>
+                    <input type="text" class="form-control form-control-sm" name="delivery_options[${i}][delivery_text]" value="${esc(d.delivery_text)}" maxlength="150" placeholder="e.g. 2-3 working days">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small fw-semibold mb-1">Min. days (sorting)</label>
+                    <input type="number" min="0" class="form-control form-control-sm" name="delivery_options[${i}][delivery_days]" value="${esc(d.delivery_days)}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small fw-semibold mb-1">Price *</label>
+                    <input type="number" step="0.01" min="0" class="form-control form-control-sm" name="delivery_options[${i}][price]" value="${esc(d.price)}" required>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small fw-semibold mb-1">Sale price</label>
+                    <input type="number" step="0.01" min="0" class="form-control form-control-sm" name="delivery_options[${i}][sale_price]" value="${esc(d.sale_price)}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-semibold mb-1">Stock qty *</label>
+                    <input type="number" min="0" class="form-control form-control-sm" name="delivery_options[${i}][quantity]" value="${esc(d.quantity)}" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small fw-semibold mb-1">SKU (optional)</label>
+                    <input type="text" class="form-control form-control-sm" name="delivery_options[${i}][sku]" value="${esc(d.sku)}" maxlength="100">
+                </div>
+            </div>
+            <div class="d-flex align-items-center justify-content-between mt-2">
+                <div class="d-flex gap-3">
+                    <div class="form-check form-switch">
+                        <input type="hidden" name="delivery_options[${i}][status]" value="0">
+                        <input class="form-check-input" type="checkbox" name="delivery_options[${i}][status]" value="1" ${d.status ? 'checked' : ''}>
+                        <label class="form-check-label small">Active</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input opt-default" type="radio" name="delivery_options_default" ${d.is_default ? 'checked' : ''}>
+                        <input type="hidden" class="opt-default-val" name="delivery_options[${i}][is_default]" value="${d.is_default ? 1 : 0}">
+                        <label class="form-check-label small">Pre-highlight on product page</label>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-danger opt-remove"><i class="bi bi-trash"></i> Remove</button>
+            </div>`;
+        div.querySelector('.opt-remove').addEventListener('click', () => { div.remove(); lockProductFields(); });
+        div.querySelector('.opt-default').addEventListener('change', () => {
+            list.querySelectorAll('.opt-default-val').forEach(h => h.value = 0);
+            div.querySelector('.opt-default-val').value = 1;
+        });
+        list.appendChild(div);
+        lockProductFields();
+    }
+
+    existing.forEach(o => addRow(o));
+    addBtn.addEventListener('click', () => {
+        // First two rows of a product with no options get the default names
+        const n = list.children.length;
+        addRow({ label: n < DEFAULT_LABELS.length ? DEFAULT_LABELS[n] : '' });
+    });
+    lockProductFields();
+})();
+</script>
+@endpush

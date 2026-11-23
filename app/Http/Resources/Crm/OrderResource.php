@@ -18,11 +18,11 @@ class OrderResource extends JsonResource
             'shipping_address',
             'products' => function ($q) {
                 $q->with(['variations.attribute_values.attribute'])
-                  ->withPivot(['variation_id','quantity','single_price','shipping_cost','tax','subtotal','fast_shipping_cost','item_shipping_method','has_fast_shipping','item_status','cancellation_reason','eta','selected_attribute_ids','variation_display_name']);
+                  ->withPivot(['variation_id','quantity','single_price','shipping_cost','tax','subtotal','fast_shipping_cost','item_shipping_method','has_fast_shipping','item_status','cancellation_reason','eta','selected_attribute_ids','variation_display_name','delivery_option_id','delivery_option_label','delivery_option_text','delivery_option_price']);
             },
             'sub_orders.products' => function ($q) {
                 $q->with(['variations.attribute_values.attribute'])
-                  ->withPivot(['variation_id','quantity','single_price','shipping_cost','tax','subtotal','fast_shipping_cost','item_shipping_method','has_fast_shipping','item_status','cancellation_reason','eta','selected_attribute_ids','variation_display_name','estimated_delivery_text']);
+                  ->withPivot(['variation_id','quantity','single_price','shipping_cost','tax','subtotal','fast_shipping_cost','item_shipping_method','has_fast_shipping','item_status','cancellation_reason','eta','selected_attribute_ids','variation_display_name','delivery_option_id','delivery_option_label','delivery_option_text','delivery_option_price','estimated_delivery_text']);
             },
             'status_histories',
         ]);
@@ -180,6 +180,11 @@ class OrderResource extends JsonResource
                         ] : null,
                         'variation_display_name' => $p->pivot->variation_display_name ?? null,
                         'selected_attribute_ids' => $p->pivot->selected_attribute_ids ?? null,
+                        // Delivery option chosen by the customer (frozen at order time)
+                        'delivery_option_id'    => $p->pivot->delivery_option_id ?? null,
+                        'delivery_option_label' => $p->pivot->delivery_option_label ?? null,
+                        'delivery_option_text'  => $p->pivot->delivery_option_text ?? null,
+                        'delivery_option_price' => $p->pivot->delivery_option_price ?? null,
                         'quantity'       => (int) ($p->pivot->quantity ?? 1),
                         'single_price'   => $p->pivot->single_price ?? null,
                         'shipping_cost'  => $p->pivot->shipping_cost ?? null,

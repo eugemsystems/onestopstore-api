@@ -690,6 +690,19 @@ class AdminProductController extends Controller
             'product_galleries.*' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
             'product_meta_image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
             'size_chart_image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
+            // Delivery options (admin-named, e.g. "Fastest Delivery" / "Best Price")
+            'delivery_options_submitted' => 'nullable|boolean',
+            'delivery_options' => 'nullable|array',
+            'delivery_options.*.id' => 'nullable|integer',
+            'delivery_options.*.label' => 'required|string|max:100',
+            'delivery_options.*.delivery_text' => 'nullable|string|max:150',
+            'delivery_options.*.delivery_days' => 'nullable|integer|min:0',
+            'delivery_options.*.price' => 'required|numeric|min:0',
+            'delivery_options.*.sale_price' => 'nullable|numeric|min:0',
+            'delivery_options.*.quantity' => 'required|integer|min:0',
+            'delivery_options.*.stock_status' => 'nullable|in:in_stock,out_of_stock',
+            'delivery_options.*.sku' => 'nullable|string|max:100',
+            'delivery_options.*.status' => 'nullable|boolean',
         ]);
 
         try {
@@ -896,6 +909,12 @@ class AdminProductController extends Controller
                     ]);
                     throw $e;
                 }
+            }
+
+            // Delivery options: upsert submitted rows, soft-delete removed ones, then re-derive the
+            // product's own price/stock from the active options (so search/filters keep working).
+            if ($request->boolean('delivery_options_submitted')) {
+                $this->syncDeliveryOptions($product, (array) $request->input('delivery_options', []));
             }
 
             // IMPORTANT: Reload product with ALL relationships before commit
@@ -1509,6 +1528,57 @@ class AdminProductController extends Controller
     /**
      * Bulk Disable Layby on products, either by SKU list or by delivery text
      */
+    /**
+     * Upsert the product's delivery options from the admin form and re-derive product pricing.
+     * Rows keep their order (sort_order = position). Removed rows are soft-deleted; old orders keep
+     * their own snapshot so history is unaffected.
+     */
+    private function syncDeliveryOptions(Product $product, array $rows): void
+    {
+        $keepIds = [];
+        $hasDefault = false;
+        $position = 0;
+
+        foreach ($rows as $row) {
+            $sale = isset($row['sale_price']) && $row['sale_price'] !== '' ? (float) $row['sale_price'] : null;
+            $price = (float) $row['price'];
+            $qty = (int) $row['quantity'];
+            $isDefault = !$hasDefault && !empty($row['is_default']);
+            $hasDefault = $hasDefault || $isDefault;
+
+            $data = [
+                'product_id'    => $product->id,
+                'label'         => trim($row['label']),
+                'delivery_text' => $row['delivery_text'] ?? null,
+                'delivery_days' => isset($row['delivery_days']) && $row['delivery_days'] !== '' ? (int) $row['delivery_days'] : null,
+                'price'         => $price,
+                'sale_price'    => ($sale && $sale > 0 && $sale < $price) ? $sale : null,
+                'quantity'      => $qty,
+                'stock_status'  => $qty > 0 ? ($row['stock_status'] ?? 'in_stock') : 'out_of_stock',
+                'sku'           => $row['sku'] ?? null,
+                'sort_order'    => $position++,
+                'is_default'    => $isDefault,
+                'status'        => array_key_exists('status', $row) ? (bool) $row['status'] : true,
+            ];
+
+            $option = !empty($row['id'])
+                ? \App\Models\ProductDeliveryOption::where('product_id', $product->id)->find($row['id'])
+                : null;
+
+            if ($option) {
+                $option->update($data);
+            } else {
+                $option = \App\Models\ProductDeliveryOption::create($data);
+            }
+            $keepIds[] = $option->id;
+        }
+
+        \App\Models\ProductDeliveryOption::where('product_id', $product->id)
+            ->whereNotIn('id', $keepIds ?: [0])->delete();
+
+        \App\Models\ProductDeliveryOption::syncProduct($product->id);
+    }
+
     public function bulkDisableLayby()
     {
         return view('admin.products.bulk-disable-layby');
