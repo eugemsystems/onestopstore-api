@@ -2215,6 +2215,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // ── Delivery Options repeater ────────────────────────────────────────────────
 (function () {
     const DEFAULT_LABELS = ['Fastest Delivery', 'Best Price'];
+    const DEFAULT_DELIVERY_TEXTS = ['Get it Today In Harare 7am - 7pm', '5-10 Work Days'];
     @php
         $deliveryOptionsForJs = $product->allDeliveryOptions->map(function ($o) {
             return [
@@ -2310,7 +2311,13 @@ document.addEventListener('DOMContentLoaded', function() {
     addBtn.addEventListener('click', () => {
         // First two rows of a product with no options get the default names
         const n = list.children.length;
-        addRow({ label: n < DEFAULT_LABELS.length ? DEFAULT_LABELS[n] : '' });
+        // Prefill: name + delivery text for the first two, min days = row position (1, 2, 3...), stock 99999
+        addRow({
+            label: n < DEFAULT_LABELS.length ? DEFAULT_LABELS[n] : '',
+            delivery_text: n < DEFAULT_DELIVERY_TEXTS.length ? DEFAULT_DELIVERY_TEXTS[n] : '',
+            delivery_days: n + 1,
+            quantity: 99999,
+        });
     });
     lockProductFields();
 })();
