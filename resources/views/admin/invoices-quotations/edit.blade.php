@@ -254,6 +254,7 @@ document.addEventListener('DOMContentLoaded', function() {
         item_id: {{ $item->id }},
         product_id: {{ $item->product_id ?: 'null' }},
         variation_id: {{ $item->variation_id ?: 'null' }},
+        delivery_option_id: {{ $item->delivery_option_id ?: 'null' }},
         product_name: @json($item->product_name),
         sku: @json($item->sku ?? ''),
         description: @json($item->description ?? ''),
@@ -513,6 +514,7 @@ function renderItems() {
                 <input type="hidden" name="items[${index}][id]" value="${item.item_id || ''}">
                 <input type="hidden" name="items[${index}][product_id]" value="${item.product_id || ''}">
                 <input type="hidden" name="items[${index}][variation_id]" value="${item.variation_id || ''}">
+                <input type="hidden" name="items[${index}][delivery_option_id]" value="${item.delivery_option_id || ''}">
                 <input type="hidden" name="items[${index}][product_name]" class="hidden-product-name" value="${escapeHtml(item.product_name)}">
                 <input type="hidden" name="items[${index}][sku]" class="hidden-sku" value="${escapeHtml(item.sku || '')}">
                 <input type="hidden" name="items[${index}][image_url]" value="${item.image_url || ''}">

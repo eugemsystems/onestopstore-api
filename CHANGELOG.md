@@ -11,6 +11,12 @@ Update this file in the same commit as every change.
 
 ---
 
+## [v1.1.0] — 2026-11-25
+
+### Added
+- Admin **Create Order**: products with delivery options open a "Select Delivery Option" picker (label, delivery time, price, stock); the chosen option sets the line price, shows on the cart/checkout lines and is sent as `delivery_option_id` so stock, price and the order-line snapshot work like the storefront. Same product with another option = separate line. (`resources/views/admin/orders/create.blade.php`, `AdminOrderController.php`)
+- Admin **Invoices & Quotations**: products with delivery options show one button per option (name, delivery time, price, stock) in the product search; the chosen option sets the line price and is saved on the item (`invoice_quotation_items.delivery_option_id`, new migration - run `php artisan migrate`). It survives autosave/resume, edit, quotation -> invoice copy, and "convert to order" (the order line gets the frozen option label/text/price). The product search API gains an additive `delivery_options` array. (`AdminInvoiceQuotationController.php`, `InvoiceQuotationItem.php`, `invoices-quotations/create|edit.blade.php`, migration `2026_11_25_000001_...`)
+
 ## [v1.0.0] — 2026-11-23
 
 ### Added

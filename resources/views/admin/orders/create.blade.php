@@ -521,6 +521,43 @@
     </div>
 </div>
 
+<!-- Delivery Option Modal (products with delivery options: one price per delivery time) -->
+<div class="modal fade" id="deliveryOptionModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border:none;border-radius:16px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.22);">
+            <div style="background:linear-gradient(135deg,#0a2d6b 0%,#1a5cb8 100%);padding:18px 22px;display:flex;align-items:center;justify-content:space-between;">
+                <div>
+                    <div style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.6);margin-bottom:3px;"><i class="bi bi-truck me-1"></i>Select Delivery Option</div>
+                    <div id="deliveryOptionProductName" style="font-size:1rem;font-weight:700;color:#fff;"></div>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" style="opacity:.7;"></button>
+            </div>
+            <div class="modal-body" style="padding:20px;">
+                <div id="deliveryOptionsList" style="display:flex;flex-direction:column;gap:8px;max-height:300px;overflow-y:auto;"></div>
+                <div style="margin-top:14px;display:flex;align-items:center;gap:10px;">
+                    <label style="font-size:.78rem;font-weight:600;color:#475569;white-space:nowrap;">Quantity</label>
+                    <div style="display:flex;align-items:center;border:1.5px solid #e2e8f0;border-radius:10px;overflow:hidden;">
+                        <button type="button" onclick="document.getElementById('deliveryOptionQuantity').stepDown()"
+                            style="width:36px;height:36px;background:#f8fafc;border:none;cursor:pointer;font-size:1rem;color:#475569;">−</button>
+                        <input type="number" id="deliveryOptionQuantity" value="1" min="1"
+                            style="width:52px;height:36px;border:none;text-align:center;font-weight:700;font-size:.9rem;outline:none;">
+                        <button type="button" onclick="document.getElementById('deliveryOptionQuantity').stepUp()"
+                            style="width:36px;height:36px;background:#f8fafc;border:none;cursor:pointer;font-size:1rem;color:#475569;">+</button>
+                    </div>
+                </div>
+            </div>
+            <div style="padding:14px 20px;border-top:1px solid #e2e8f0;display:flex;gap:10px;justify-content:flex-end;background:#fafafa;">
+                <button type="button" class="btn" data-bs-dismiss="modal"
+                    style="background:#f1f5f9;border:1.5px solid #e2e8f0;color:#475569;border-radius:10px;padding:8px 22px;font-weight:600;font-size:.86rem;">Cancel</button>
+                <button type="button" class="btn" id="addDeliveryOptionToCart"
+                    style="background:linear-gradient(135deg,#0a2d6b,#1a5cb8);border:none;color:#fff;border-radius:10px;padding:8px 24px;font-weight:700;font-size:.86rem;box-shadow:0 3px 12px rgba(10,45,107,.3);">
+                    <i class="bi bi-bag-plus-fill me-1"></i>Add to Cart
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Add Address Modal -->
 <div class="modal fade" id="addAddressModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
@@ -1321,6 +1358,7 @@
                         </a>
                         ${hasDiscount ? `<span style="position:absolute;top:7px;left:7px;background:#dc2626;color:#fff;font-size:.6rem;font-weight:800;padding:2px 7px;border-radius:20px;letter-spacing:.3px;">SALE</span>` : ''}
                         ${hasVariations ? `<span style="position:absolute;top:7px;right:7px;background:#0f3d8c;color:#fff;font-size:.6rem;font-weight:700;padding:2px 7px;border-radius:20px;"><i class="bi bi-tags"></i> Vars</span>` : ''}
+                        ${(!hasVariations && product.delivery_options && product.delivery_options.length > 0) ? `<span style="position:absolute;top:7px;right:7px;background:#0f3d8c;color:#fff;font-size:.6rem;font-weight:700;padding:2px 7px;border-radius:20px;"><i class="bi bi-truck"></i> More Options</span>` : ''}
                     </div>
                     <div style="padding:10px 11px;flex:1;display:flex;flex-direction:column;justify-content:space-between;">
                         <div>
@@ -1373,10 +1411,88 @@
         // Check if product has variations
         if (product.variations && product.variations.length > 0) {
             showVariationModal(product);
+        } else if (product.delivery_options && product.delivery_options.length > 0) {
+            // One product, several prices by delivery time: the admin must pick one
+            showDeliveryOptionModal(product);
         } else {
             addToCart(product, null);
         }
     }
+
+    // ---- Delivery options ----
+    let selectedDeliveryOption = null;
+
+    function deliveryOptionPrice(o) {
+        const price = parseFloat(o.price || 0);
+        const sale = parseFloat(o.sale_price || 0);
+        return (sale > 0 && sale < price) ? sale : price;
+    }
+
+    function deliveryOptionInStock(o) {
+        return (o.stock_status || 'in_stock') === 'in_stock' && parseInt(o.quantity || 0) > 0;
+    }
+
+    function showDeliveryOptionModal(product) {
+        document.getElementById('deliveryOptionProductName').textContent = product.name;
+        document.getElementById('deliveryOptionQuantity').value = 1;
+        selectedDeliveryOption = null;
+
+        const list = document.getElementById('deliveryOptionsList');
+        list.innerHTML = product.delivery_options.map((o, i) => {
+            const inStock = deliveryOptionInStock(o);
+            const price = deliveryOptionPrice(o);
+            const hasDiscount = parseFloat(o.sale_price || 0) > 0 && parseFloat(o.sale_price) < parseFloat(o.price);
+            return `
+                <div class="delivery-option-row" data-index="${i}"
+                     style="display:flex;align-items:center;gap:12px;padding:10px 12px;border:2px solid #e2e8f0;border-radius:12px;cursor:${inStock ? 'pointer' : 'not-allowed'};background:#fff;opacity:${inStock ? 1 : .55};">
+                    <i class="bi bi-circle" style="color:#94a3b8;"></i>
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-size:.84rem;font-weight:700;color:#0f172a;">${escapeHtmlOpt(o.label || 'Option')}</div>
+                        <div style="font-size:.72rem;color:#64748b;">${escapeHtmlOpt(o.delivery_text || '')}</div>
+                        <div style="font-size:.7rem;font-weight:600;color:${inStock ? '#16a34a' : '#dc2626'};margin-top:2px;">
+                            ${inStock ? (parseInt(o.quantity) + ' in stock') : 'Out of stock'}
+                        </div>
+                    </div>
+                    <div style="text-align:right;flex-shrink:0;">
+                        ${hasDiscount ? `<div style="font-size:.7rem;color:#94a3b8;text-decoration:line-through;">${formatCurrency(o.price)}</div>` : ''}
+                        <div style="font-size:.95rem;font-weight:800;color:${hasDiscount ? '#dc2626' : '#0f3d8c'};">${formatCurrency(price)}</div>
+                    </div>
+                </div>`;
+        }).join('');
+
+        list.querySelectorAll('.delivery-option-row').forEach(row => {
+            row.addEventListener('click', function () {
+                const o = product.delivery_options[parseInt(this.dataset.index)];
+                if (!deliveryOptionInStock(o)) return;
+                selectedDeliveryOption = o;
+                list.querySelectorAll('.delivery-option-row').forEach(r => {
+                    r.style.border = '2px solid #e2e8f0';
+                    r.style.background = '#fff';
+                    r.querySelector('i').className = 'bi bi-circle';
+                });
+                this.style.border = '2px solid #0f3d8c';
+                this.style.background = '#eff6ff';
+                this.querySelector('i').className = 'bi bi-record-circle-fill';
+            });
+        });
+
+        new bootstrap.Modal(document.getElementById('deliveryOptionModal')).show();
+    }
+
+    function escapeHtmlOpt(s) {
+        return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    document.getElementById('addDeliveryOptionToCart').addEventListener('click', function () {
+        if (!currentProduct) return;
+        if (!selectedDeliveryOption) {
+            showWarning('Choose a delivery option', 'Please select one of the delivery options for this product.');
+            return;
+        }
+        const quantity = parseInt(document.getElementById('deliveryOptionQuantity').value) || 1;
+        addToCart(currentProduct, null, quantity, selectedDeliveryOption);
+        bootstrap.Modal.getInstance(document.getElementById('deliveryOptionModal')).hide();
+    });
 
     function showVariationModal(product) {
         const modal = new bootstrap.Modal(document.getElementById('variationModal'));
@@ -1486,16 +1602,23 @@
         bootstrap.Modal.getInstance(document.getElementById('variationModal')).hide();
     });
 
-    function addToCart(product, variation = null, quantity = 1) {
-        const cartItemId = variation ? `${product.id}_${variation.id}` : `${product.id}`;
+    function addToCart(product, variation = null, quantity = 1, deliveryOption = null) {
+        let cartItemId = variation ? `${product.id}_${variation.id}` : `${product.id}`;
+        // Same product with a different delivery option is a separate line
+        if (deliveryOption) cartItemId += `_o${deliveryOption.id}`;
         const existingItem = cart.find(item => item.cart_id === cartItemId);
 
         if (existingItem) {
             existingItem.quantity += quantity;
         } else {
             // Determine price and original price for sale display
-            const originalPrice = variation ? variation.price : product.price || 0;
-            const salePrice = variation ? variation.sale_price : product.sale_price;
+            let originalPrice = variation ? variation.price : product.price || 0;
+            let salePrice = variation ? variation.sale_price : product.sale_price;
+            if (deliveryOption) {
+                // The option carries its own price (sale price when lower)
+                originalPrice = parseFloat(deliveryOption.price || 0);
+                salePrice = parseFloat(deliveryOption.sale_price || 0) > 0 ? parseFloat(deliveryOption.sale_price) : null;
+            }
             const finalPrice = salePrice || originalPrice;
             const hasDiscount = salePrice && salePrice < originalPrice;
 
@@ -1509,6 +1632,9 @@
                 cart_id: cartItemId,
                 product_id: product.id,
                 variation_id: variation?.id || null,
+                delivery_option_id: deliveryOption?.id || null,
+                delivery_option_label: deliveryOption?.label || '',
+                delivery_option_text: deliveryOption?.delivery_text || '',
                 name: product.name,
                 variation_name: attributes,
                 sku: variation?.sku || product.sku,
@@ -1590,6 +1716,7 @@
                 <div style="flex:1;min-width:0;">
                     <div style="font-size:.78rem;font-weight:700;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${item.name}</div>
                     ${item.variation_name ? `<div style="font-size:.65rem;color:#0ea5e9;">${item.variation_name}</div>` : ''}
+                    ${item.delivery_option_id ? `<div style="font-size:.65rem;color:#0f3d8c;font-weight:700;"><i class="bi bi-truck"></i> ${escapeHtmlOpt(item.delivery_option_label)}${item.delivery_option_text ? ' · ' + escapeHtmlOpt(item.delivery_option_text) : ''}</div>` : ''}
                     <div style="font-size:.65rem;color:#94a3b8;">${item.sku || ''}</div>
                     ${item.has_fast_shipping ? `
                         <label style="display:flex;align-items:center;gap:4px;font-size:.65rem;color:#d97706;cursor:pointer;margin-top:2px;">
@@ -1633,6 +1760,7 @@
                 <div class="flex-grow-1">
                     <div><strong>${item.name}</strong></div>
                     ${item.variation_name ? `<small class="text-info">${item.variation_name}</small><br>` : ''}
+                    ${item.delivery_option_id ? `<small style="color:#0f3d8c;font-weight:700;"><i class="bi bi-truck"></i> ${escapeHtmlOpt(item.delivery_option_label)}${item.delivery_option_text ? ' · ' + escapeHtmlOpt(item.delivery_option_text) : ''}</small><br>` : ''}
                     ${item.has_discount ? `
                         <small class="text-muted">Qty: ${item.quantity} × <span class="text-decoration-line-through">${formatCurrency(item.original_price)}</span> <span class="text-danger fw-bold">${formatCurrency(item.price)}</span></small>
                     ` : `
@@ -2016,6 +2144,7 @@
         const cartDataWithFastShipping = cart.map(item => ({
             product_id: item.product_id,
             variation_id: item.variation_id,
+            delivery_option_id: item.delivery_option_id || null,
             quantity: item.quantity,
             price: item.price,
             has_fast_shipping: item.fast_shipping_enabled ? 1 : 0,

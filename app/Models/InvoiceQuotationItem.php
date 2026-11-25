@@ -13,6 +13,7 @@ class InvoiceQuotationItem extends Model
         'invoice_quotation_id',
         'product_id',
         'variation_id',
+        'delivery_option_id',
         'product_name',
         'sku',
         'description',

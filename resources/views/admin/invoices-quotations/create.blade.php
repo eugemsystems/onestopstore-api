@@ -609,6 +609,7 @@ function renderItems() {
                        placeholder="SKU" ${isManual ? '' : 'disabled'}>
                 <input type="hidden" name="items[${index}][product_id]" value="${item.product_id || ''}">
                 <input type="hidden" name="items[${index}][variation_id]" value="${item.variation_id || ''}">
+                <input type="hidden" name="items[${index}][delivery_option_id]" value="${item.delivery_option_id || ''}">
                 <input type="hidden" name="items[${index}][product_name]" value="${item.product_name}">
                 <input type="hidden" name="items[${index}][sku]" value="${item.sku || ''}">
                 <input type="hidden" name="items[${index}][image_url]" value="${item.image_url || ''}">
@@ -1118,6 +1119,7 @@ function performAutoSave() {
         items: items.map(item => ({
             product_id: item.product_id,
             variation_id: item.variation_id,
+            delivery_option_id: item.delivery_option_id || null,
             product_name: item.product_name,
             sku: item.sku,
             description: item.description,
@@ -1299,6 +1301,7 @@ function restoreAutosave(doc) {
                     id: id,
                     product_id: item.product_id || null,
                     variation_id: item.variation_id || null,
+                    delivery_option_id: item.delivery_option_id || null,
                     product_name: item.product_name || '',
                     sku: item.sku || '',
                     description: item.description || '',
@@ -1649,6 +1652,34 @@ document.getElementById('productSearchInput').addEventListener('input', function
                     resultsDiv.innerHTML = '<div class="col-12 text-center text-muted">No products found</div>';
                 } else {
                     resultsDiv.innerHTML = products.map(product => {
+                        // Product with delivery options: one button per option (own price + delivery time)
+                        if (!(product.has_variations) && product.delivery_options && product.delivery_options.length > 0) {
+                            const sym = exchangeRates[selectedCurrency]?.symbol || '$';
+                            const optsHtml = product.delivery_options.map(o => {
+                                const base = parseFloat(o.price || 0), sale = parseFloat(o.sale_price || 0);
+                                const usd = (sale > 0 && sale < base) ? sale : base;
+                                let p = usd;
+                                if (selectedCurrency !== 'USD' && exchangeRates[selectedCurrency]) {
+                                    p = (usd / (exchangeRates['USD']?.rate || 1.0)) * exchangeRates[selectedCurrency].rate;
+                                }
+                                const out = (o.stock_status || 'in_stock') !== 'in_stock' || parseInt(o.quantity || 0) <= 0;
+                                const payload = JSON.stringify({id: product.id, name: product.name, sku: product.sku, image_url: product.image_url, option_id: o.id, option_label: o.label, option_text: o.delivery_text || '', converted_price: p, original_usd_price: usd}).replace(/'/g, "\\'");
+                                return `<button type="button" class="btn btn-sm ${out ? 'btn-outline-secondary' : 'btn-outline-primary'} w-100 mb-1 text-start" ${out ? 'disabled' : ''} onclick='addProductItemWithOption(${payload})'>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="text-truncate"><strong>${o.label}</strong><br><small>${o.delivery_text || ''}</small></span>
+                                        <div><strong>${selectedCurrency} ${sym}${p.toFixed(2)}</strong> ${out ? '<span class="badge bg-danger ms-1">Out of Stock</span>' : ''}</div>
+                                    </div></button>`;
+                            }).join('');
+                            return `<div class="col-md-12"><div class="card"><div class="card-body p-2">
+                                <div class="d-flex gap-2 mb-2">
+                                    <img src="${product.image_url || '/assets/images/placeholder.png'}" alt="${product.name}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 4px;">
+                                    <div class="flex-grow-1" style="min-width: 0;"><div class="small fw-bold text-truncate">${product.name}</div><small class="text-muted">SKU: ${product.sku || 'N/A'}</small><br><small class="text-info">${product.delivery_options.length} delivery option(s)</small></div>
+                                </div>
+                                <small class="text-muted d-block mb-1"><strong>Select a delivery option:</strong></small>
+                                ${optsHtml}
+                            </div></div></div>`;
+                        }
+
                         // Check if product has variations
                         if (product.has_variations && product.variations && product.variations.length > 0) {
                             // Product with variations - show variation selector
@@ -1764,6 +1795,23 @@ function addProductItem(product) {
         quantity: 1,
         unit_price: parseFloat(price),
         original_usd_price: parseFloat(originalUsdPrice) // Store original USD price
+    });
+    bootstrap.Modal.getInstance(document.getElementById('productSearchModal')).hide();
+    document.getElementById('productSearchInput').value = '';
+    document.getElementById('productSearchResults').innerHTML = '';
+}
+
+function addProductItemWithOption(o) {
+    addItem({
+        product_id: o.id,
+        variation_id: null,
+        delivery_option_id: o.option_id,
+        product_name: `${o.name} - ${o.option_label}${o.option_text ? ' (' + o.option_text + ')' : ''}`,
+        sku: o.sku,
+        image_url: o.image_url,
+        quantity: 1,
+        unit_price: parseFloat(o.converted_price),
+        original_usd_price: parseFloat(o.original_usd_price)
     });
     bootstrap.Modal.getInstance(document.getElementById('productSearchModal')).hide();
     document.getElementById('productSearchInput').value = '';

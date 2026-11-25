@@ -293,6 +293,7 @@ class AdminInvoiceQuotationController extends Controller
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'nullable|exists:products,id',
             'items.*.variation_id' => 'nullable|exists:variations,id',
+            'items.*.delivery_option_id' => 'nullable|integer',
             'items.*.product_name' => 'required|string',
             'items.*.sku' => 'nullable|string',
             'items.*.description' => 'nullable|string',
@@ -406,6 +407,7 @@ class AdminInvoiceQuotationController extends Controller
                     'invoice_quotation_id' => $document->id,
                     'product_id' => $itemData['product_id'] ?? null,
                     'variation_id' => $itemData['variation_id'] ?? null,
+                    'delivery_option_id' => $itemData['delivery_option_id'] ?? null,
                     'product_name' => $itemData['product_name'],
                     'sku' => $itemData['sku'] ?? null,
                     'description' => $itemData['description'] ?? null,
@@ -524,6 +526,7 @@ class AdminInvoiceQuotationController extends Controller
             'items.*.id' => 'nullable|integer',
             'items.*.product_id' => 'nullable|integer',
             'items.*.variation_id' => 'nullable|integer',
+            'items.*.delivery_option_id' => 'nullable|integer',
             'items.*.product_name' => 'required|string',
             'items.*.sku' => 'nullable|string',
             'items.*.image_url' => 'nullable|string',
@@ -592,6 +595,7 @@ class AdminInvoiceQuotationController extends Controller
                         'invoice_quotation_id' => $document->id,
                         'product_id' => !empty($itemData['product_id']) ? $itemData['product_id'] : null,
                         'variation_id' => !empty($itemData['variation_id']) ? $itemData['variation_id'] : null,
+                        'delivery_option_id' => !empty($itemData['delivery_option_id']) ? $itemData['delivery_option_id'] : null,
                         'product_name' => $itemData['product_name'],
                         'sku' => $itemData['sku'] ?? null,
                         'image_url' => $itemData['image_url'] ?? null,
@@ -982,6 +986,15 @@ class AdminInvoiceQuotationController extends Controller
                 $price = $source['price'] ?? 0;
                 $salePrice = $source['sale_price'] ?? null;
 
+                // Delivery options (own price per delivery time), read fresh from the database
+                $deliveryOptions = [];
+                if (!empty($source['id'])) {
+                    $deliveryOptions = \App\Models\ProductDeliveryOption::where('product_id', $source['id'])
+                        ->where('status', 1)->orderBy('sort_order')->orderBy('id')
+                        ->get(['id', 'label', 'delivery_text', 'price', 'sale_price', 'quantity', 'stock_status'])
+                        ->toArray();
+                }
+
                 // Get full variation details from database if product has variations
                 $variations = [];
                 if (isset($source['id']) && !empty($source['variations'])) {
@@ -1015,6 +1028,7 @@ class AdminInvoiceQuotationController extends Controller
                     'image_url' => $imageUrl,
                     'variations' => $variations,
                     'has_variations' => !empty($variations),
+                    'delivery_options' => $deliveryOptions,
                 ];
             });
 
@@ -1197,6 +1211,7 @@ class AdminInvoiceQuotationController extends Controller
                     'invoice_quotation_id' => $invoice->id,
                     'product_id' => $item->product_id,
                     'variation_id' => $item->variation_id,
+                    'delivery_option_id' => $item->delivery_option_id,
                     'product_name' => $item->product_name,
                     'sku' => $item->sku,
                     'description' => $item->description,
@@ -1374,6 +1389,7 @@ class AdminInvoiceQuotationController extends Controller
                 // Build pivot data
                 $pivotData = [
                     'variation_id' => $item->variation_id ?: null,
+                    'delivery_option_id' => $item->delivery_option_id ?: null,
                     'quantity' => (int)$item->quantity,
                     'single_price' => $item->unit_price,
                     'subtotal' => $item->subtotal,
@@ -1397,6 +1413,15 @@ class AdminInvoiceQuotationController extends Controller
                     $pivotData['variation_display_name'] = null;
                     $pivotData['selected_attribute_ids'] = null;
 
+                }
+
+                // Delivery option chosen for this line: freeze its label/text/price on the order line
+                if ($item->delivery_option_id && ($opt = \App\Models\ProductDeliveryOption::find($item->delivery_option_id))) {
+                    $pivotData['delivery_option_id'] = $opt->id;
+                    $pivotData['delivery_option_label'] = $opt->label;
+                    $pivotData['delivery_option_text'] = $opt->delivery_text;
+                    $pivotData['delivery_option_price'] = $item->unit_price;
+                    $pivotData['estimated_delivery_text'] = $opt->delivery_text;
                 }
 
                 $order->products()->attach($item->product_id, $pivotData);
@@ -1789,6 +1814,7 @@ class AdminInvoiceQuotationController extends Controller
             'items' => 'nullable|array',
             'items.*.product_id' => 'nullable|exists:products,id',
             'items.*.variation_id' => 'nullable|exists:variations,id',
+            'items.*.delivery_option_id' => 'nullable|integer',
             'items.*.product_name' => 'required|string',
             'items.*.sku' => 'nullable|string',
             'items.*.description' => 'nullable|string',
@@ -1876,6 +1902,7 @@ class AdminInvoiceQuotationController extends Controller
                         'invoice_quotation_id' => $document->id,
                         'product_id' => $itemData['product_id'] ?? null,
                         'variation_id' => $itemData['variation_id'] ?? null,
+                        'delivery_option_id' => $itemData['delivery_option_id'] ?? null,
                         'product_name' => $itemData['product_name'],
                         'sku' => $itemData['sku'] ?? null,
                         'description' => $itemData['description'] ?? null,
@@ -1982,6 +2009,7 @@ class AdminInvoiceQuotationController extends Controller
                     return [
                         'product_id' => $item->product_id,
                         'variation_id' => $item->variation_id,
+                        'delivery_option_id' => $item->delivery_option_id,
                         'product_name' => $item->product_name,
                         'sku' => $item->sku,
                         'description' => $item->description,

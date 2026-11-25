@@ -287,6 +287,7 @@ class AdminOrderController extends Controller
                 $product = [
                     'product_id' => $item['product_id'],
                     'variation_id' => $item['variation_id'] ?? null,
+                    'delivery_option_id' => $item['delivery_option_id'] ?? null,
                     'quantity' => $item['quantity'],
                     'price' => $item['price']
                 ];
