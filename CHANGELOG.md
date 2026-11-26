@@ -11,6 +11,11 @@ Update this file in the same commit as every change.
 
 ---
 
+## [v1.2.0] — 2026-11-26
+
+### Added
+- Admin **Categories** edit modal: upload, preview, replace or remove the category image. Saved as an attachment on the category itself (not copied to child categories), served via `/api/auction-files/category-images/...`; the category list/API cache version is bumped so the new image shows. Edit response gains an additive `image_url`. (`app/Http/Controllers/Admin/AdminCategoryController.php`, `resources/views/admin/categories/index.blade.php`)
+
 ## [v1.1.0] — 2026-11-25
 
 ### Added

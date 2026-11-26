@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Models\Attachment;
 use App\Models\Category;
 use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class AdminCategoryController extends BaseAdminController
 {
@@ -119,6 +121,7 @@ class AdminCategoryController extends BaseAdminController
                 'commission_rate' => $category->commission_rate,
                 'status' => $category->status,
                 'children_count' => $childrenCount,
+                'image_url' => $category->category_image->image_url ?? ($category->category_image->original_url ?? null),
             ]
         ]);
     }
@@ -139,6 +142,8 @@ class AdminCategoryController extends BaseAdminController
         $request->validate([
             'commission_rate' => 'required|numeric|min:0|max:100',
             'status' => 'required|in:0,1',
+            'image' => 'nullable|image|mimes:jpg,jpeg,png,webp,gif|max:5120',
+            'remove_image' => 'nullable|boolean',
         ]);
 
         // Ensure name and slug are not being updated (security)
@@ -196,7 +201,31 @@ class AdminCategoryController extends BaseAdminController
                     ]);
             });
 
+            // Category image (this category only - not copied to its children)
+            $imageChanged = false;
+            if ($request->hasFile('image')) {
+                $attachment = $this->storeCategoryImage($request->file('image'), $category);
+                Category::withoutEvents(function () use ($id, $attachment) {
+                    Category::where('id', $id)->update([
+                        'category_image_id' => $attachment->id,
+                        'category_image_uuid' => $attachment->uuid,
+                    ]);
+                });
+                $imageChanged = true;
+            } elseif ($request->boolean('remove_image')) {
+                Category::withoutEvents(function () use ($id) {
+                    Category::where('id', $id)->update(['category_image_id' => null, 'category_image_uuid' => null]);
+                });
+                $imageChanged = true;
+            }
+
             DB::commit();
+
+            if ($imageChanged) {
+                // API consumers cache categories by version
+                $ver = (int) \Cache::get('categories_cache_version', 1);
+                \Cache::put('categories_cache_version', $ver + 1, now()->addDays(365));
+            }
 
             // Audit log — directly after withoutEvents since observers are silenced
             try {
@@ -205,6 +234,7 @@ class AdminCategoryController extends BaseAdminController
                 $changes = [];
                 if ((string)$oldCommission !== (string)$commissionRate) $changes['commission_rate'] = "{$oldCommission} → {$commissionRate}";
                 if ((string)$oldStatus !== (string)$status) $changes['status'] = "{$oldStatus} → {$status}";
+                if ($imageChanged) $changes['image'] = $request->hasFile('image') ? 'replaced' : 'removed';
                 $changeStr = !empty($changes) ? ' (' . implode(', ', array_map(fn($k, $v) => "{$k}: {$v}", array_keys($changes), $changes)) . ')' : '';
                 ActivityLogger::make()->useLog('category')->event('updated')->on($category)
                     ->withChanges(
@@ -242,6 +272,35 @@ class AdminCategoryController extends BaseAdminController
                 'message' => 'Failed to update category: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Save an uploaded category image on the public disk and register it as an Attachment
+     * (same pattern as blog / auction images, streamed through /api/auction-files/).
+     */
+    private function storeCategoryImage($file, $category): Attachment
+    {
+        $path = $file->store('category-images', 'public');
+        $url = rtrim(config('app.url'), '/') . '/api/auction-files/' . $path;
+
+        // Attachment has $incrementing = false, so the id is set explicitly.
+        $nextId = (int) Attachment::max('id') + 1;
+
+        return Attachment::create([
+            'id'              => $nextId,
+            'uuid'            => (string) Str::uuid(),
+            'name'            => pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME),
+            'file_name'       => basename($path),
+            'mime_type'       => $file->getMimeType(),
+            'disk'            => 'public',
+            'collection_name' => 'category_image',
+            'size'            => $file->getSize(),
+            'original_url'    => $url,
+            'image_url'       => $url,
+            'model_type'      => 'App\\Models\\Category',
+            'model_id'        => $category->id,
+            'created_by_id'   => auth()->id(),
+        ]);
     }
 }
 

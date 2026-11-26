@@ -265,6 +265,25 @@
                         </small>
                     </div>
 
+                    <!-- Category Image -->
+                    <div class="mb-3">
+                        <label for="categoryImage" class="form-label fw-bold">Category Image</label>
+                        <div class="d-flex align-items-center gap-3">
+                            <div id="categoryImagePreviewBox" class="border rounded bg-light d-flex align-items-center justify-content-center" style="width:96px;height:96px;overflow:hidden;flex-shrink:0;">
+                                <img id="categoryImagePreview" src="" alt="" style="max-width:100%;max-height:100%;display:none;">
+                                <i id="categoryImagePlaceholder" class="bi bi-image text-muted" style="font-size:1.8rem;"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <input type="file" class="form-control" id="categoryImage" name="image" accept="image/png,image/jpeg,image/webp,image/gif">
+                                <div class="form-check mt-2" id="removeImageWrap" style="display:none;">
+                                    <input class="form-check-input" type="checkbox" id="removeCategoryImage">
+                                    <label class="form-check-label small" for="removeCategoryImage">Remove current image</label>
+                                </div>
+                                <small class="form-text text-muted">JPG, PNG, WEBP or GIF, max 5 MB. Applies to this category only.</small>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Children Count Info -->
                     <div class="alert alert-info mb-0">
                         <i class="bi bi-info-circle"></i>
@@ -434,6 +453,9 @@ function editCategory(categoryId) {
     document.getElementById('categorySlug').value = 'Loading...';
     document.getElementById('commissionRate').value = '';
     document.getElementById('childrenInfo').textContent = 'Loading category details...';
+    setCategoryImagePreview(null);
+    document.getElementById('categoryImage').value = '';
+    document.getElementById('removeCategoryImage').checked = false;
 
     editModal.show();
 
@@ -454,6 +476,8 @@ function editCategory(categoryId) {
             document.getElementById('categorySlug').value = category.slug;
             document.getElementById('commissionRate').value = category.commission_rate || 0;
             document.getElementById('categoryStatus').value = category.status ? '1' : '0';
+            setCategoryImagePreview(category.image_url || null);
+            document.getElementById('removeImageWrap').style.display = category.image_url ? 'block' : 'none';
 
             const childrenCount = category.children_count;
             if (childrenCount > 0) {
@@ -476,6 +500,22 @@ function editCategory(categoryId) {
     });
 }
 
+function setCategoryImagePreview(url) {
+    const img = document.getElementById('categoryImagePreview');
+    const ph = document.getElementById('categoryImagePlaceholder');
+    if (url) { img.src = url; img.style.display = 'block'; ph.style.display = 'none'; }
+    else { img.removeAttribute('src'); img.style.display = 'none'; ph.style.display = 'block'; }
+}
+
+document.getElementById('categoryImage').addEventListener('change', function () {
+    const file = this.files && this.files[0];
+    if (!file) return;
+    document.getElementById('removeCategoryImage').checked = false;
+    const reader = new FileReader();
+    reader.onload = e => setCategoryImagePreview(e.target.result);
+    reader.readAsDataURL(file);
+});
+
 function saveCategory() {
     const categoryId = document.getElementById('categoryId').value;
     const commissionRate = document.getElementById('commissionRate').value;
@@ -485,17 +525,22 @@ function saveCategory() {
     saveBtn.disabled = true;
     saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
 
+    // multipart (file upload): PHP can't read a multipart PUT body, so POST + method spoofing
+    const formData = new FormData();
+    formData.append('_method', 'PUT');
+    formData.append('commission_rate', commissionRate);
+    formData.append('status', status);
+    const imageFile = document.getElementById('categoryImage').files[0];
+    if (imageFile) formData.append('image', imageFile);
+    if (document.getElementById('removeCategoryImage').checked) formData.append('remove_image', '1');
+
     fetch(`{{ url('admin/categories') }}/${categoryId}`, {
-        method: 'PUT',
+        method: 'POST',
         headers: {
             'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-            'Content-Type': 'application/json',
             'Accept': 'application/json',
         },
-        body: JSON.stringify({
-            commission_rate: commissionRate,
-            status: status,
-        })
+        body: formData
     })
     .then(response => response.json())
     .then(data => {
